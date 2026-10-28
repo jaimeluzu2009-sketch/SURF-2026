@@ -1,0 +1,10 @@
+# Godot 4+ specific ignores
+.godot/
+/android/
+
+# Exportaciones (el APK/AAB va en las releases de GitHub, no en el repo)
+/build/
+*.apk
+*.aab
+*.jks
+*.keystore

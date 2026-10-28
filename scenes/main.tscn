@@ -1,0 +1,128 @@
+[gd_scene load_steps=16 format=3]
+
+[ext_resource type="Script" path="res://scripts/game.gd" id="1_game"]
+[ext_resource type="Script" path="res://scripts/water.gd" id="2_water"]
+[ext_resource type="Script" path="res://scripts/beach.gd" id="3_beach"]
+[ext_resource type="Script" path="res://scripts/surfer.gd" id="4_surfer"]
+[ext_resource type="PackedScene" path="res://assets/models/board.glb" id="5_board"]
+[ext_resource type="PackedScene" path="res://assets/models/surfer.glb" id="6_model"]
+[ext_resource type="Script" path="res://scripts/surfer_animator.gd" id="7_anim"]
+[ext_resource type="Script" path="res://scripts/leash.gd" id="8_leash"]
+[ext_resource type="Script" path="res://scripts/camera_rig.gd" id="9_cam"]
+[ext_resource type="Script" path="res://scripts/hud.gd" id="10_hud"]
+[ext_resource type="Script" path="res://scripts/touch_controls.gd" id="11_touch"]
+[ext_resource type="Script" path="res://scripts/ui/menus.gd" id="12_menus"]
+
+[sub_resource type="ProceduralSkyMaterial" id="SkyMat"]
+sky_top_color = Color(0.2, 0.44, 0.78, 1)
+sky_horizon_color = Color(0.7, 0.81, 0.9, 1)
+ground_bottom_color = Color(0.08, 0.18, 0.24, 1)
+ground_horizon_color = Color(0.62, 0.74, 0.82, 1)
+sun_angle_max = 20.0
+
+[sub_resource type="Sky" id="Sky"]
+sky_material = SubResource("SkyMat")
+
+[sub_resource type="Environment" id="Env"]
+background_mode = 2
+sky = SubResource("Sky")
+ambient_light_source = 3
+ambient_light_energy = 0.85
+reflected_light_source = 2
+tonemap_mode = 2
+tonemap_white = 6.0
+glow_intensity = 0.5
+glow_bloom = 0.05
+fog_enabled = true
+fog_light_color = Color(0.72, 0.82, 0.9, 1)
+fog_density = 0.0011
+fog_sky_affect = 0.0
+
+[sub_resource type="BoxShape3D" id="BoardShape"]
+size = Vector3(0.5, 0.25, 1.85)
+
+[node name="Main" type="Node3D"]
+script = ExtResource("1_game")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+light_color = Color(1, 0.96, 0.88, 1)
+light_energy = 1.25
+shadow_enabled = true
+directional_shadow_mode = 1
+directional_shadow_max_distance = 35.0
+
+[node name="Water" type="MeshInstance3D" parent="."]
+script = ExtResource("2_water")
+
+[node name="Beach" type="Node3D" parent="."]
+script = ExtResource("3_beach")
+
+[node name="Surfer" type="CharacterBody3D" parent="."]
+motion_mode = 1
+script = ExtResource("4_surfer")
+
+[node name="Shape" type="CollisionShape3D" parent="Surfer"]
+shape = SubResource("BoardShape")
+
+[node name="Visual" type="Node3D" parent="Surfer"]
+
+[node name="Board" parent="Surfer/Visual" instance=ExtResource("5_board")]
+
+[node name="Wake" type="CPUParticles3D" parent="Surfer/Visual"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, -0.8)
+emitting = false
+
+[node name="Rider" type="Node3D" parent="Surfer"]
+
+[node name="SurferModel" parent="Surfer/Rider" instance=ExtResource("6_model")]
+
+[node name="Animator" type="Node" parent="Surfer/Rider"]
+script = ExtResource("7_anim")
+
+[node name="Leash" type="MeshInstance3D" parent="Surfer"]
+script = ExtResource("8_leash")
+
+[node name="LipSpray" type="CPUParticles3D" parent="."]
+emitting = false
+
+[node name="Camera" type="Camera3D" parent="."]
+current = true
+fov = 68.0
+near = 0.1
+far = 1200.0
+script = ExtResource("9_cam")
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="Touch" type="Control" parent="UI"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("11_touch")
+
+[node name="Hud" type="Control" parent="UI"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("10_hud")
+
+[node name="Menus" type="Control" parent="UI"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("12_menus")
