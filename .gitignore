@@ -8,3 +8,17 @@
 *.aab
 *.jks
 *.keystore
+
+# Capturas de validación generadas localmente; las pruebas las recrean.
+/capturas/
+# Configuración y secretos locales de firma.
+.env
+.env.*
+*.p12
+*.pfx
+*.pem
+*.key
+contrasena*.txt
+contraseña*.txt
+/barrels-claves/
+*.log

@@ -51,3 +51,45 @@ static func setup_spray(p: CPUParticles3D, amount: int, lifetime: float, size_mi
 	ramp.set_color(1, Color(1, 1, 1, 0.0))
 	p.color_ramp = ramp
 	p.emitting = false
+
+
+static var _rail_quad: QuadMesh
+
+## Board spray has slender droplets instead of the large round crest sprites.
+static func setup_rail_spray(p: CPUParticles3D, amount: int) -> void:
+	setup_spray(p,amount,0.40,0.12,0.40)
+	if _rail_quad == null:
+		var gradient := Gradient.new()
+		gradient.set_color(0,Color(1,1,1,0.9))
+		gradient.add_point(0.3,Color(1,1,1,0.7))
+		gradient.set_color(gradient.get_point_count()-1,Color(1,1,1,0))
+		var texture := GradientTexture2D.new()
+		texture.gradient=gradient
+		texture.fill=GradientTexture2D.FILL_RADIAL
+		texture.fill_from=Vector2(0.5,0.5)
+		texture.fill_to=Vector2(1.0,0.5)
+		texture.width=32
+		texture.height=64
+		var material := StandardMaterial3D.new()
+		material.shading_mode=BaseMaterial3D.SHADING_MODE_UNSHADED
+		material.transparency=BaseMaterial3D.TRANSPARENCY_ALPHA
+		material.blend_mode=BaseMaterial3D.BLEND_MODE_ADD
+		material.billboard_mode=BaseMaterial3D.BILLBOARD_PARTICLES
+		material.vertex_color_use_as_albedo=true
+		material.albedo_texture=texture
+		material.disable_receive_shadows=true
+		_rail_quad=QuadMesh.new()
+		_rail_quad.size=Vector2(0.10,0.28)
+		_rail_quad.material=material
+	p.mesh=_rail_quad
+	p.gravity=Vector3(0,-9.8,0)
+	p.spread=22.0
+	p.angle_min=-16.0
+	p.angle_max=16.0
+	p.emission_shape=CPUParticles3D.EMISSION_SHAPE_BOX
+	p.emission_box_extents=Vector3(0.04,0.015,0.06)
+	var ramp := Gradient.new()
+	ramp.set_color(0,Color(0.65,0.85,0.91,0.70))
+	ramp.add_point(0.18,Color(0.90,0.97,1.0,0.60))
+	ramp.set_color(ramp.get_point_count()-1,Color(0.8,0.92,0.97,0))
+	p.color_ramp=ramp

@@ -356,9 +356,9 @@ def build_armature():
 JOINTS = {
 	"pelvis": ((0, 0.012, 0.96), (0.150, 0.108)),
 	"waist": ((0, 0.0, 1.10), (0.128, 0.094)),
-	"chest": ((0, -0.006, 1.27), (0.158, 0.112)),
-	"upper": ((0, 0.004, 1.41), (0.148, 0.098)),
-	"neck": ((0, 0.008, 1.53), (0.054, 0.058)),
+	"chest": ((0, -0.006, 1.27), (0.168, 0.118)),
+	"upper": ((0, 0.004, 1.41), (0.162, 0.104)),
+	"neck": ((0, 0.008, 1.53), (0.058, 0.060)),
 	"headbase": ((0, 0.0, 1.60), (0.056, 0.058)),
 }
 SKIN_EDGES = [("pelvis", "waist"), ("waist", "chest"), ("chest", "upper"), ("upper", "neck"), ("neck", "headbase")]
@@ -366,17 +366,17 @@ for side, sx in (("L", 1), ("R", -1)):
 	def j(name, p, r):
 		JOINTS[f"{name}_{side}"] = ((p[0] * sx, p[1], p[2]), r)
 	j("shoulder", (0.178, 0.006, 1.43), (0.058, 0.060))
-	j("arm", (0.30, 0.006, 1.348), (0.048, 0.050))
+	j("arm", (0.30, 0.006, 1.348), (0.054, 0.052))
 	j("elbow", (0.415, 0.006, 1.27), (0.040, 0.041))
-	j("forearm", (0.52, 0.002, 1.205), (0.042, 0.038))
+	j("forearm", (0.52, 0.002, 1.205), (0.046, 0.041))
 	j("wrist", (0.62, 0.0, 1.14), (0.030, 0.022))
-	j("palm", (0.695, 0.0, 1.09), (0.042, 0.017))
-	j("fingers", (0.775, 0.0, 1.038), (0.036, 0.013))
+	j("palm", (0.695, 0.0, 1.09), (0.036, 0.020))
+	j("fingers", (0.775, 0.0, 1.038), (0.029, 0.014))
 	j("thumb", (0.665, -0.032, 1.10), (0.014, 0.014))
 	j("hip", (0.092, 0.012, 0.91), (0.084, 0.090))
-	j("thigh", (0.100, 0.002, 0.72), (0.072, 0.076))
-	j("knee", (0.100, -0.010, 0.50), (0.050, 0.054))
-	j("calf", (0.100, 0.016, 0.34), (0.054, 0.058))
+	j("thigh", (0.100, 0.002, 0.72), (0.080, 0.083))
+	j("knee", (0.100, -0.010, 0.50), (0.053, 0.056))
+	j("calf", (0.100, 0.016, 0.34), (0.058, 0.060))
 	j("ankle", (0.100, 0.022, 0.10), (0.033, 0.036))
 	j("ball", (0.106, -0.115, 0.032), (0.043, 0.020))
 	j("toe", (0.110, -0.185, 0.026), (0.036, 0.016))
@@ -403,11 +403,23 @@ def build_body(mats):
 		layer.data[i].radius = JOINTS[n][1]
 	layer.data[idx["pelvis"]].use_root = True
 	sub = ob.modifiers.new("Sub", 'SUBSURF')
-	sub.levels = 1
-	sub.render_levels = 1
+	sub.levels = 2
+	sub.render_levels = 2
 	dg = bpy.context.evaluated_depsgraph_get()
 	me2 = bpy.data.meshes.new_from_object(ob.evaluated_get(dg))
 	bpy.data.objects.remove(ob, do_unlink=True)
+	# Place garment boundaries on actual loops instead of a sawtooth across quads.
+	bm = bmesh.new()
+	bm.from_mesh(me2)
+	for z in [0.118, 0.62, 0.69, 1.02, 1.315, 1.34, 1.365, 1.43, 1.49, 1.525]:
+		bmesh.ops.bisect_plane(bm, geom=list(bm.verts)+list(bm.edges)+list(bm.faces), dist=0.00001,
+			plane_co=V(0,0,z), plane_no=V(0,0,1), clear_inner=False, clear_outer=False)
+	for x in [-0.612, -0.40, -0.37, -0.195, -0.16, -0.10, 0.10, 0.16, 0.195, 0.37, 0.40, 0.612]:
+		bmesh.ops.bisect_plane(bm, geom=list(bm.verts)+list(bm.edges)+list(bm.faces), dist=0.00001,
+			plane_co=V(x,0,0), plane_no=V(1,0,0), clear_inner=False, clear_outer=False)
+	bm.to_mesh(me2)
+	bm.free()
+	me2.update()
 	body = link(bpy.data.objects.new("Body", me2))
 	for key in ("wetsuit", "skin", "accent", "pads"):
 		me2.materials.append(mats[key])
@@ -465,15 +477,32 @@ def build_head(mats):
 	parts = [head, hair]
 	for sx in (1, -1):
 		bm = bmesh.new()
-		bmesh.ops.create_uvsphere(bm, u_segments=8, v_segments=6, radius=0.011)
+		bmesh.ops.create_uvsphere(bm, u_segments=8, v_segments=6, radius=0.0038)
 		u = V(0.37 * sx, -0.86, 0.13).normalized() * 0.93
-		bmesh.ops.translate(bm, vec=center + V(u.x * scale.x, u.y * scale.y, u.z * scale.z), verts=bm.verts)
+		bmesh.ops.translate(bm, vec=center + V(u.x * scale.x, u.y * scale.y - 0.009, u.z * scale.z), verts=bm.verts)
 		parts.append(obj_from_bmesh("Eye", bm, mats["eye"]))
 		bm = bmesh.new()
 		bmesh.ops.create_uvsphere(bm, u_segments=8, v_segments=6, radius=1.0)
 		bmesh.ops.scale(bm, vec=V(0.012, 0.022, 0.031), verts=bm.verts)
 		bmesh.ops.translate(bm, vec=V(0.079 * sx, 0.002, 1.68), verts=bm.verts)
 		parts.append(obj_from_bmesh("Ear", bm, mats["skin"]))
+	# Small facial volumes remain readable in a close gameplay camera.
+	eye_white = make_mat("Esclerotica", srgb(0.72,0.70,0.63), 0.5)
+	lip = make_mat("Labios", srgb(0.39,0.22,0.18), 0.65)
+	for sx in (-1,1):
+		for name, pos, sc, mat in [
+			("Sclera", V(sx*0.029,-0.104,1.700), V(0.008,0.003,0.0045), eye_white),
+			("Brow", V(sx*0.031,-0.104,1.713), V(0.016,0.004,0.003), mats["hair"])]:
+			bm=bmesh.new()
+			bmesh.ops.create_uvsphere(bm,u_segments=8,v_segments=5,radius=1)
+			for v in bm.verts:
+				v.co=V(v.co.x*sc.x,v.co.y*sc.y,v.co.z*sc.z)+pos
+			parts.append(obj_from_bmesh(name,bm,mat))
+	bm=bmesh.new()
+	bmesh.ops.create_uvsphere(bm,u_segments=10,v_segments=4,radius=1)
+	for v in bm.verts:
+		v.co=V(v.co.x*0.019,-0.110+v.co.y*0.003,1.642+v.co.z*0.0025)
+	parts.append(obj_from_bmesh("Lips",bm,lip))
 	for p in parts:
 		vg = p.vertex_groups.new(name="head")
 		vg.add(list(range(len(p.data.vertices))), 1.0, 'REPLACE')
@@ -619,11 +648,11 @@ def stance(hips=V(0.06, 0.01, 0.80), lean=18.0, roll=0.0, twist=0.0, arms=None, 
 		"thigh_R": ("ik", V(bx, by, deck_top(by) + ANKLE_H), V(-1, -0.9, 0.1)),
 		"foot_R": ("w", foot_dir(-0.97, 0.2)),
 		"upper_arm_L": ("w", V(-0.30, -0.82, -0.48)),
-		"forearm_L": ("w", V(-0.42, -0.74, -0.52)),
-		"hand_L": ("w", V(-0.40, -0.70, -0.60)),
+		"forearm_L": ("w", V(-0.60, -0.65, -0.12)),
+		"hand_L": ("w", V(-0.55, -0.65, -0.20)),
 		"upper_arm_R": ("w", V(-0.22, 0.74, -0.62)),
-		"forearm_R": ("w", V(-0.34, 0.62, -0.70)),
-		"hand_R": ("w", V(-0.30, 0.55, -0.78)),
+		"forearm_R": ("w", V(-0.65, 0.25, -0.35)),
+		"hand_R": ("w", V(-0.60, 0.20, -0.40)),
 	}
 	if spine:
 		b.update(spine)
@@ -661,12 +690,16 @@ def paddle_arm(phase):
 		(0.75, V(0.62, 0.62, 0.30), V(0.40, -0.10, 0.91), V(0.3, -0.4, 0.86)),      # recobro por el aire
 		(1.00, V(0.34, -0.22, 0.91), V(0.30, -0.30, 0.90), V(0.25, -0.45, 0.85)),
 	]
+	# Cyclic Catmull-Rom makes reach, pull and recovery join with continuous velocity.
 	phase %= 1.0
-	for (p0, u0, f0, h0), (p1, u1, f1, h1) in zip(keys, keys[1:]):
-		if phase <= p1:
-			k = (phase - p0) / (p1 - p0)
-			return (u0.lerp(u1, k), f0.lerp(f1, k), h0.lerp(h1, k))
-	return keys[0][1:]
+	i=int(phase*4)
+	u=phase*4-i
+	out=[]
+	for channel in (1,2,3):
+		a,b,c,d=[keys[j%4][channel] for j in (i-1,i,i+1,i+2)]
+		v=0.5*((2*b)+(-a+c)*u+(2*a-5*b+4*c-d)*u*u+(-a+3*b-3*c+d)*u*u*u)
+		out.append(v.normalized())
+	return tuple(out)
 
 
 def paddle(phase):
@@ -714,12 +747,15 @@ def build_actions(arm):
 		actions[name] = (act, loop)
 
 	make("prone_idle", [(0, prone()), (30, prone(breath=3, head_up=-3)), (60, prone())], True)
-	make("paddle", [(round(30 * i / 8), paddle(i / 8)) for i in range(9)], True)
+	make("paddle", [(i, paddle(i / 30)) for i in range(31)], True)
 
 	ride0 = stance()
 	ride1 = stance(hips=V(0.06, 0.01, 0.785), arms={
 		"upper_arm_L": ("w", V(-0.32, -0.80, -0.50)), "upper_arm_R": ("w", V(-0.24, 0.72, -0.64))})
 	make("ride", [(0, ride0), (30, ride1), (60, stance())], True)
+	# Feet are solved by the same two-bone IK as the riding poses.
+	tucked = stance(hips=V(0.05,0.01,0.64), lean=29, head_yaw=32)
+	make("tube_crouch", [(0,tucked),(30,tucked)], True)
 
 	carve_r = stance(hips=V(-0.02, 0.0, 0.70), lean=36, twist=6, head_yaw=30, arms={
 		"upper_arm_L": ("w", V(-0.62, -0.62, -0.48)), "forearm_L": ("w", V(-0.60, -0.55, -0.58)),

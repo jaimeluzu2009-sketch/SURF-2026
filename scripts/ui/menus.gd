@@ -58,6 +58,7 @@ func current() -> String:
 
 
 func open(screen: String, back := "") -> void:
+	Controles.cancel_rebind()
 	if _current == "custom" and screen != "custom":
 		customize_preview.emit(false)
 	for s in _screens.values():
@@ -85,6 +86,7 @@ func open(screen: String, back := "") -> void:
 
 
 func close() -> void:
+	Controles.cancel_rebind()
 	if _current == "custom":
 		customize_preview.emit(false)
 	for s in _screens.values():
@@ -283,6 +285,10 @@ func _build_spots() -> void:
 	col.add_theme_constant_override("separation", 18)
 	m.add_child(col)
 	_header(col, "Costa del Pacífico", "ELIGE TU SPOT", 1)
+	col.add_child(UiKit.setting_row("Condiciones de sesión", "Cambian tamaño, espera entre series, marejada y nivel del agua.",
+		UiKit.option(["Limpio", "Marea media", "Mar de fondo"], Ajustes.session_condition, func(i):
+			Ajustes.session_condition = i
+			Ajustes.apply())))
 	_spot_cards = HBoxContainer.new()
 	_spot_cards.add_theme_constant_override("separation", 20)
 	_spot_cards.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -373,12 +379,25 @@ func _build_custom() -> void:
 	_header(col, "Personalización", "SURFISTA Y TABLA", 2)
 	_custom_body = VBoxContainer.new()
 	_custom_body.add_theme_constant_override("separation", 14)
-	col.add_child(_custom_body)
+	var custom_scroll := ScrollContainer.new()
+	custom_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	custom_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	col.add_child(custom_scroll)
+	_custom_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	custom_scroll.add_child(_custom_body)
 
 
 func _refresh_custom() -> void:
 	_clear(_custom_body)
-	var names := {"wetsuit": "Neopreno", "accent": "Franja del pecho", "deck": "Cubierta de la tabla", "bottom": "Fondo de la tabla"}
+	_custom_body.add_child(UiKit.setting_row("Apariencia", "Las tres apariencias están disponibles desde el inicio.",
+		UiKit.option(Perfil.STYLES.map(func(s): return s["name"]), Perfil.style_index(), func(i):
+			Perfil.set_style(i)
+			_refresh_custom())))
+	if Perfil.style_id == "custom":
+		_custom_body.add_child(UiKit.setting_row("Ropa", "",
+			UiKit.option(["Neopreno", "Licra y bermuda"], Perfil.outfit, func(i):
+				Perfil.set_outfit(i))))
+	var names := {"wetsuit": "Color de ropa", "accent": "Detalle / bermuda", "deck": "Cubierta de la tabla", "bottom": "Fondo de la tabla"}
 	for slot in ["wetsuit", "accent", "deck", "bottom"]:
 		var sec := VBoxContainer.new()
 		sec.add_theme_constant_override("separation", 6)
@@ -399,7 +418,7 @@ func _refresh_custom() -> void:
 
 func _swatch(slot: String, it: Dictionary) -> Control:
 	var b := Button.new()
-	b.custom_minimum_size = Vector2(76, 76)
+	b.custom_minimum_size = Vector2(60, 60)
 	var on: bool = Perfil.look[slot] == it["id"]
 	var open_it := Perfil.unlocked(it)
 	var col: Color = it["color"]
@@ -599,6 +618,7 @@ func _apply() -> void:
 
 ## Cambia de pestaña desde código (mando, teclado o pruebas).
 func select_tab(screen: String, i: int) -> void:
+	Controles.cancel_rebind()
 	var bar := _settings_tabs if screen == "settings" else _career_tabs
 	(bar.get_child(i) as Button).button_pressed = true
 	if screen == "settings":
@@ -626,7 +646,7 @@ func _refresh_settings() -> void:
 				UiKit.toggle(Ajustes.adaptive, func(v):
 					Ajustes.adaptive = v
 					_apply())))
-			b.add_child(UiKit.setting_row("Mostrar FPS", "Contador de rendimiento (también con F3).",
+			b.add_child(UiKit.setting_row("Mostrar FPS", "Contador de rendimiento (tecla %s)." % Controles.key_label("toggle_fps"),
 				UiKit.toggle(Ajustes.show_fps, func(v):
 					Ajustes.show_fps = v
 					_apply())))
@@ -635,11 +655,27 @@ func _refresh_settings() -> void:
 				UiKit.slider(0.0, 1.0, 0.05, Ajustes.volume, func(v): return "%d %%" % int(round(v * 100.0)), func(v):
 					Ajustes.volume = v
 					_apply())))
-			var note := UiKit.label("BARRELS todavía no tiene música ni efectos de sonido. Este control ya ajusta el volumen general del juego y se guarda para cuando lleguen.",
+			var note := UiKit.label("Mar de fondo, remadas, rompiente, deslizamiento y caídas. Dentro del tubo el mar suena más grave y amortiguado. Sonidos originales sintetizados para BARRELS.",
 				16, UiKit.TEXT_DIM)
 			note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			b.add_child(note)
 		2:
+			b.add_child(UiKit.setting_row("Distancia de cámara", "Acerca o aleja la cámara de seguimiento.",
+				UiKit.slider(0.75, 1.35, 0.05, Ajustes.camera_distance, func(v): return "%d %%" % int(round(v * 100.0)), func(v):
+					Ajustes.camera_distance = v
+					_apply())))
+			b.add_child(UiKit.setting_row("Sensibilidad de giro", "Afecta al teclado, al joystick táctil y al mando.",
+				UiKit.slider(0.5, 1.5, 0.05, Ajustes.steering_sensitivity, func(v): return "%d %%" % int(v * 100), func(v):
+					Ajustes.steering_sensitivity = v
+					_apply())))
+			b.add_child(UiKit.setting_row("Zona muerta del joystick", "Evita giros por pequeños movimientos o deriva del mando.",
+				UiKit.slider(0.0, 0.4, 0.01, Ajustes.stick_deadzone, func(v): return "%d %%" % int(v * 100), func(v):
+					Ajustes.stick_deadzone = v
+					_apply())))
+			b.add_child(UiKit.setting_row("Invertir peso adelante/atrás", "Invierte el eje vertical; girar no cambia.",
+				UiKit.toggle(Ajustes.invert_weight, func(v):
+					Ajustes.invert_weight = v
+					_apply())))
 			b.add_child(UiKit.setting_row("Controles táctiles", "Auto: aparecen en pantallas táctiles.",
 				UiKit.option(Ajustes.TOUCH_MODES, Ajustes.touch_mode, func(i):
 					Ajustes.touch_mode = i
@@ -657,21 +693,12 @@ func _refresh_settings() -> void:
 					Ajustes.paddle_toggle = i == 1
 					Controles.paddle_latched = false
 					_apply())))
-			var keys := UiKit.panel(Color(UiKit.DEEP, 0.6), 12, Color(UiKit.SAND, 0.08), 16)
-			var kv := VBoxContainer.new()
-			kv.add_theme_constant_override("separation", 4)
-			kv.add_child(UiKit.kicker("Teclado y mando"))
-			for line in [["Girar / peso", "A D W S · flechas · stick izquierdo"], ["Remar", "Espacio · W · X / RB"],
-					["Ponerse de pie", "E · Shift · A"], ["Pausa", "Esc · P · Start"], ["Reiniciar ola", "R · Y"],
-					["Contador de FPS", "F3"]]:
-				var r := HBoxContainer.new()
-				var k := UiKit.label(line[0], 18, UiKit.TEXT_DIM, UiKit.font_title())
-				k.custom_minimum_size.x = 220
-				r.add_child(k)
-				r.add_child(UiKit.label(line[1], 18))
-				kv.add_child(r)
-			keys.add_child(kv)
-			b.add_child(keys)
+			b.add_child(ControlBindings.new())
+			var reset := UiKit.button("RESTABLECER CONTROLES")
+			reset.pressed.connect(func():
+				Controles.reset_controls()
+				_refresh_settings())
+			b.add_child(reset)
 		_:
 			b.add_child(UiKit.setting_row("Tamaño de la interfaz", "Agranda textos y botones.",
 				UiKit.slider(0.9, 1.3, 0.05, Ajustes.ui_scale, func(v): return "%d %%" % int(round(v * 100.0)), func(v):
@@ -820,6 +847,7 @@ func show_results(title: String, detail: String, stats: Dictionary, gains: Dicti
 	_res["stats"].add_child(UiKit.stat("%s km/h" % UiKit.kmh(stats["speed"]), "Vel. máx."))
 	_res["stats"].add_child(UiKit.stat("×%d" % stats["combo"], "Combo", s["ui_main"]))
 	_res["stats"].add_child(UiKit.stat("%.1f s" % stats["pocket"], "Pocket"))
+	_res["stats"].add_child(UiKit.stat("%.1f s / %d" % [stats.get("tube_time", 0.0), stats.get("tube_exits", 0)], "Tubo / salidas"))
 	_res["xp"].text = "+%s XP" % UiKit.num(gains["xp"])
 	var lvl := Perfil.level()
 	_res["level"].text = "NIVEL %d%s" % [lvl, "  ·  ¡SUBISTE DE NIVEL!" if gains["level_after"] > gains["level_before"] else ""]

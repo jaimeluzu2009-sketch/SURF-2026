@@ -57,7 +57,7 @@ static func make(mat_name: String, col: Color, detail: bool) -> Material:
 				m.uv1_scale = Vector3(14, 14, 1)
 				m.roughness_texture = noise_tex("neopreno_r", 64, 0.08, 2, false)
 				m.roughness_texture_channel = BaseMaterial3D.TEXTURE_CHANNEL_RED
-		"Franja", "Rodilleras", "Leash":
+		"Licra", "Bermuda", "Costura", "Grafica", "Franja", "Rodilleras", "Leash":
 			m.roughness = 0.55
 			m.metallic_specular = 0.4
 			if detail:

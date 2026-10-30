@@ -23,6 +23,9 @@ var swell_amp := 0.10      ## Marejada de fondo.
 var set_count := 0
 ## Separación entre olas de la serie (m): velocidad × periodo (unos 14 s en Ecuador).
 var set_spacing := 70.0
+var tide := 0.0
+var wind_chop := 0.35
+var tube_strength := 0.0
 var time := 0.0
 
 # Valores derivados para el instante actual (los recalcula update()).
@@ -100,7 +103,7 @@ func height_at(x: float, z: float) -> float:
 	var u2 := u + 2.0 * set_spacing
 	var w2 := front_width if u2 > 0.0 else back_width
 	h += set_amp2 * sl * exp(-(u2 * u2) / (w2 * w2))
-	return h + swell_at(x, z)
+	return h + swell_at(x, z) + tide
 
 
 func swell_at(x: float, z: float) -> float:
@@ -132,3 +135,32 @@ func sample(x: float, z: float) -> Dictionary:
 		"u": u,
 		"face_width": front_width,
 	}
+
+
+## Labio volumétrico: misma sección elíptica para malla, techo y detección.
+func tube_section(x: float, t := -1.0) -> Dictionary:
+	if t < 0.0:
+		t = time
+	var d := derived_at(t)
+	var ahead := (x - d[1]) * peel_dir
+	var envelope := sstep(-1.5, 0.0, ahead)
+	var strength := tube_strength * d[2] * sstep(0.9, 1.7, d[3]) * sstep(-30.0, -18.0, d[0])
+	var radius := front_width * 0.82
+	var cz := d[0] + front_width * 0.84
+	# Sample floor at the same render instant without changing wave state.
+	var old := time
+	time = t
+	update()
+	var floor_y := height_at(x, cz)
+	time = old
+	update()
+	return {"ahead": ahead, "z": cz, "floor": floor_y, "rz": radius,
+		"ry": 2.10 * strength * envelope, "active": strength > 0.95 and envelope > 0.20 and ahead < 6.8}
+
+func tube_at(pos: Vector3, head_height := 1.50) -> Dictionary:
+	var sec := tube_section(pos.x)
+	var offset: float = (pos.z - sec["z"]) / sec["rz"]
+	var inside: bool = sec["active"] and absf(offset) < 0.93 and sec["ahead"] > -0.5 and sec["ahead"] < 6.8
+	var roof: float = sec["floor"] + 0.12 + sec["ry"] * sqrt(maxf(0.0, 1.0 - offset * offset))
+	return {"inside": inside, "roof": roof, "clearance": roof - pos.y - head_height,
+		"ahead": sec["ahead"], "center_z": sec["z"]}

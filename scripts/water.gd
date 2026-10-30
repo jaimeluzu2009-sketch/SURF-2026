@@ -6,7 +6,7 @@ extends MeshInstance3D
 const WATER_SHADER := preload("res://shaders/water.gdshader")
 const FAR_SHADER := preload("res://shaders/far_water.gdshader")
 
-@export var radius := 230.0
+@export var radius := 210.0
 @export var follow: Node3D
 @export var snap := 4.0
 
@@ -86,6 +86,8 @@ func sync(t: float) -> void:
 	if wave == null:
 		return
 	var d := wave.derived_at(t)
+	_mat.set_shader_parameter("tube_strength", wave.tube_strength)
+	_mat.set_shader_parameter("tide", wave.tide)
 	_mat.set_shader_parameter("wave_time", t)
 	_mat.set_shader_parameter("crest_z", d[0])
 	_mat.set_shader_parameter("peel_x", d[1])
@@ -111,10 +113,18 @@ func set_sky(sky: Color, to_sun: Vector3) -> void:
 
 
 ## Tabla y estela para la espuma de contacto. points: x, z, edad, intensidad.
-func set_board(pos: Vector3, speed: float, touching: bool, points: PackedVector4Array) -> void:
+func set_board(pos: Vector3, speed: float, touching: bool, points: PackedVector4Array, loads := PackedFloat32Array(), heading := Vector2(0,1), rail_load := 0.0) -> void:
 	_mat.set_shader_parameter("board", Vector4(pos.x, pos.z, speed, 1.0 if touching else 0.0))
 	_mat.set_shader_parameter("wake", points)
 	_mat.set_shader_parameter("wake_count", points.size())
+	_mat.set_shader_parameter("wake_load",loads)
+	_mat.set_shader_parameter("board_rails",Vector3(heading.x,heading.y,rail_load))
+	var lower := Vector2(pos.x,pos.z)-Vector2(1.5,1.5)
+	var upper := Vector2(pos.x,pos.z)+Vector2(1.5,1.5)
+	for point in points:
+		lower=lower.min(Vector2(point.x,point.y)-Vector2(2.5,2.5))
+		upper=upper.max(Vector2(point.x,point.y)+Vector2(2.5,2.5))
+	_mat.set_shader_parameter("wake_bounds",Vector4(lower.x,lower.y,upper.x,upper.y))
 
 
 func set_colors(deep: Color, shallow: Color, face: Color) -> void:

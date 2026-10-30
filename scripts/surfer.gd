@@ -8,6 +8,7 @@ extends CharacterBody3D
 
 signal ride_ended(success: bool, title: String, detail: String)
 signal hint(text: String)
+signal maneuver_completed(result: Dictionary)
 
 enum State { PRONE, POPUP, RIDING, WIPEOUT, DONE }
 
@@ -41,6 +42,8 @@ var state := State.PRONE
 var yaw := 0.0
 var hvel := Vector2.ZERO
 var carve := 0.0
+var rail_load := 0.0
+var turns := SurfTurns.new()
 var trim := 0.0
 var balance := 0.0
 var can_stand := false
@@ -70,9 +73,23 @@ var _noise := FastNoiseLite.new()
 var _hint_cooldown := 0.0
 ## Recorrido reciente de la tabla para la estela: x, z, instante, intensidad.
 var _wake: Array[Vector4] = []
+var _wake_loads: Array[float] = []
 var _wake_timer := 0.0
 var _clock := 0.0
 var _showcase := false
+var _stand_buffer := 0.0
+var _stand_grace := 0.0
+var in_tube := false
+var tube_seconds := 0.0
+var tube_exits := 0
+var _tube_hit := 0.0
+signal tube_exit(duration: float)
+var _tube_stint := 0.0
+var _fall_sign := 1.0
+var _winter_mesh: Mesh
+var _summer_mesh: Mesh
+var _style_meshes := {}
+var _original_board: Mesh
 
 
 func _ready() -> void:
@@ -88,17 +105,47 @@ func _ready() -> void:
 
 
 func _apply_quality() -> void:
-	wake.amount = maxi(8, int(48 * Ajustes.preset()["particles"]))
+	wake.amount = maxi(6, int(32 * Ajustes.preset()["particles"]))
 	_apply_look()
 
 
 ## Materiales con los colores elegidos en «Surfista y tabla» (Perfil).
 func _apply_look() -> void:
+	var body := $Rider/SurferModel.find_child("Surfer", true, false) as MeshInstance3D
+	if body and _winter_mesh == null:
+		_winter_mesh = body.mesh
+		if ResourceLoader.exists("res://assets/models/surfer_beach.glb"):
+			var summer: Node = load("res://assets/models/surfer_beach.glb").instantiate()
+			_summer_mesh = (summer.find_child("Surfer", true, false) as MeshInstance3D).mesh
+			summer.free()
+	if body:
+		body.mesh = _summer_mesh if Perfil.outfit == 1 and _summer_mesh != null else _winter_mesh
+	var board_mesh := $Visual/Board.find_child("Board", true, false) as MeshInstance3D
+	if _original_board == null:
+		_original_board = board_mesh.mesh
+	if Perfil.style_id != "custom":
+		var id: String = Perfil.style_id
+		for prefix in ["surfer", "board"]:
+			var cache_key: String = prefix + "_" + id
+			if not _style_meshes.has(cache_key):
+				var path := "res://assets/models/%s.glb" % cache_key
+				if ResourceLoader.exists(path):
+					var scene: Node = load(path).instantiate()
+					_style_meshes[cache_key] = (scene.find_child("Surfer" if prefix == "surfer" else "Board", true, false) as MeshInstance3D).mesh
+					scene.free()
+		body.mesh = _style_meshes.get("surfer_" + id, body.mesh)
+		board_mesh.mesh = _style_meshes.get("board_" + id, _original_board)
+	else:
+		board_mesh.mesh = _original_board
 	var detail: bool = Ajustes.preset()["detail"]
 	var look := {
 		"Neopreno": Perfil.look_color("wetsuit"), "Franja": Perfil.look_color("accent"),
+		"Bermuda": Perfil.look_color("accent"), "Licra": Perfil.look_color("wetsuit"),
 		"Cubierta": Perfil.look_color("deck"), "Fondo": Perfil.look_color("bottom"),
 	}
+	if Perfil.style_id == "retro":
+		look["Costura"] = Color(0.08, 0.40, 0.46)
+		look["Grip"] = Color(0.87, 0.86, 0.80)
 	SurfMaterials.apply($Rider/SurferModel, detail, look)
 	SurfMaterials.apply($Visual/Board, detail, look)
 
@@ -109,6 +156,24 @@ func set_frozen(on: bool) -> void:
 
 
 ## Pose de exhibición para la pantalla de personalización: de pie y con la tabla plana.
+func update_showcase() -> void:
+	if not _showcase or wave == null:
+		return
+	var p := global_position
+	var n: Vector3 = wave.sample(p.x, p.z)["normal"]
+	var f := forward()
+	f = (f - n * f.dot(n)).normalized()
+	var basis_on_water := Basis(n.cross(f), n, f)
+	p.y = wave.height_at(p.x, p.z) + 0.06
+	# Keep the rotating outfit preview above the moving wave at the board's edges.
+	for dx in [-0.23, 0.0, 0.23]:
+		for dz in [-0.88, 0.0, 0.88]:
+			var offset: Vector3 = basis_on_water * Vector3(dx, 0, dz)
+			p.y = maxf(p.y, wave.height_at(p.x + offset.x, p.z + offset.z) - offset.y + 0.04)
+	visual.global_transform = Transform3D(basis_on_water, p)
+	rider.global_transform = visual.global_transform
+
+
 func set_showcase(on: bool) -> void:
 	_showcase = on
 	if on:
@@ -130,6 +195,8 @@ func reset_to(pos: Vector3, heading: float) -> void:
 	carve = 0.0
 	trim = 0.0
 	balance = 0.0
+	rail_load = 0.0
+	turns.reset()
 	_danger = 0.0
 	_foam_time = 0.0
 	_rail_time = 0.0
@@ -140,6 +207,14 @@ func reset_to(pos: Vector3, heading: float) -> void:
 	_rider_detached = false
 	_reported = false
 	_wake.clear()
+	_wake_loads.clear()
+	_stand_buffer = 0.0
+	_stand_grace = 0.0
+	in_tube = false
+	tube_seconds = 0.0
+	tube_exits = 0
+	_tube_hit = 0.0
+	_tube_stint = 0.0
 	_up = Vector3.UP
 	_roll_wipe = 0.0
 	animator.jump_to("prone_idle")
@@ -185,22 +260,31 @@ func _physics_process(delta: float) -> void:
 
 
 func _record_wake(delta: float) -> void:
-	_clock += delta
-	_wake_timer -= delta
-	if _wake_timer > 0.0:
-		return
-	_wake_timer = 0.09
-	var strength := 0.0
-	if is_riding() or state == State.DONE:
-		strength = clampf(speed() / 6.0, 0.2, 1.2) * (0.8 + 0.5 * absf(carve))
-	elif state == State.PRONE and speed() > 0.8:
-		strength = 0.35
-	if strength <= 0.0:
-		return
-	_wake.push_front(Vector4(global_position.x, global_position.z, _clock, strength))
-	var keep: int = Ajustes.preset()["wake_points"]
-	while _wake.size() > keep:
+	_clock+=delta
+	while not _wake.is_empty() and _clock-_wake.back().z>2.2:
 		_wake.pop_back()
+		_wake_loads.pop_back()
+	_wake_timer-=delta
+	if _wake_timer>0.0:
+		return
+	_wake_timer=0.09
+	var strength := 0.0
+	if is_riding() or state==State.DONE:
+		strength=clampf((speed()-0.8)/7.0,0.0,1.25)*(0.65+0.45*minf(absf(rail_load),1.2))
+	elif state==State.PRONE and speed()>0.8:
+		strength=0.20*clampf(speed()/2.6,0.0,1.0)
+	if strength<=0.0:
+		return
+	var tail: Vector3 = visual.global_transform*Vector3(0,0,-0.65)
+	# Do not stamp repeated segments while a stopped board drifts in place.
+	if not _wake.is_empty() and Vector2(tail.x,tail.z).distance_to(Vector2(_wake[0].x,_wake[0].y))<0.10:
+		return
+	_wake.push_front(Vector4(tail.x,tail.z,_clock,strength))
+	_wake_loads.push_front(clampf(rail_load,-1.2,1.2))
+	var keep: int = Ajustes.preset()["wake_points"]
+	while _wake.size()>keep:
+		_wake.pop_back()
+		_wake_loads.pop_back()
 
 
 ## Estela para el shader del agua (edad en segundos en lugar del instante).
@@ -209,6 +293,10 @@ func wake_points() -> PackedVector4Array:
 	for w in _wake:
 		out.append(Vector4(w.x, w.y, _clock - w.z, w.w))
 	return out
+
+
+func wake_loads() -> PackedFloat32Array:
+	return PackedFloat32Array(_wake_loads)
 
 
 ## La tabla toca el agua (para la espuma de contacto).
@@ -221,7 +309,7 @@ func touching_water() -> bool:
 func _do_prone(delta: float, s: Dictionary) -> void:
 	var st := Controles.stick()
 	paddling = Controles.paddling() or st.y > 0.5
-	yaw -= st.x * turn_rate_prone * delta
+	yaw -= st.x * turn_rate_prone * delta * (1.0 if Controles.bot_enabled else Ajustes.steering_sensitivity)
 	var f := Vector2(sin(yaw), cos(yaw))
 	var n: Vector3 = s["normal"]
 	var acc := Vector2(n.x, n.z) * WaveModel.G * 0.75
@@ -237,10 +325,15 @@ func _do_prone(delta: float, s: Dictionary) -> void:
 	# En la espuma no se ofrece pararse: te tumbaría al instante.
 	can_stand = s["u"] > -0.4 and s["profile"] > 0.22 and hvel.y > wave.speed * 0.6 and speed() > 3.2 \
 		and s["broken"] < 0.4
+	_stand_grace = 0.14 if can_stand else maxf(0.0, _stand_grace - delta)
 	if Controles.take_stand():
-		if can_stand:
+		_stand_buffer = 0.22
+	if _stand_buffer > 0.0:
+		_stand_buffer -= delta
+		if can_stand or (_stand_grace > 0.0 and s["broken"] < 0.4):
+			_stand_buffer = 0.0
 			_start_popup()
-		elif _hint_cooldown <= 0.0:
+		elif _stand_buffer <= 0.0 and _hint_cooldown <= 0.0:
 			_hint_cooldown = 1.5
 			if s["broken"] >= 0.4 and s["profile"] > 0.15:
 				hint.emit("Estás en la espuma: espera a la siguiente ola y cógela antes de que rompa")
@@ -262,10 +355,18 @@ func _start_popup() -> void:
 
 func _do_ride(delta: float, s: Dictionary, popup: bool) -> void:
 	var st := Vector2.ZERO if popup else Controles.stick()
-	carve = move_toward(carve, st.x, delta * 3.5)
+	if Ajustes.invert_weight and not Controles.bot_enabled:
+		st.y = -st.y
+	carve = lerpf(carve, st.x, 1.0 - exp(-8.0 * delta))
 	trim = move_toward(trim, st.y, delta * 3.0)
 	var spd := speed()
-	yaw -= carve * turn_rate_ride * clampf(spd / 5.0, 0.35, 1.15) * delta
+	# Rear-foot pressure closes the arc; speed and front-foot pressure open it.
+	var rear_pressure := maxf(-trim,0.0)
+	var pressure := carve*(1.0+rear_pressure*0.20)
+	rail_load=lerpf(rail_load,pressure,1.0-exp(-10.0*delta))
+	var speed_arc := lerpf(1.08,0.82,clampf((spd-4.0)/6.0,0.0,1.0))
+	var weight_arc := 1.0+rear_pressure*0.20-maxf(trim,0.0)*0.12
+	yaw -= carve*turn_rate_ride*clampf(spd/5.0,0.35,1.15)*speed_arc*weight_arc*delta*(1.0 if Controles.bot_enabled else Ajustes.steering_sensitivity)
 	var f := Vector2(sin(yaw), cos(yaw))
 	var n: Vector3 = s["normal"]
 	var acc := Vector2(n.x, n.z) * WaveModel.G
@@ -277,17 +378,27 @@ func _do_ride(delta: float, s: Dictionary, popup: bool) -> void:
 		acc += f * 1.1 * trim * clampf(profile * 2.0, 0.0, 1.0)
 	hvel += acc * delta
 	var kf := 0.10 + 0.010 * spd + (0.9 * -trim if trim < 0.0 else 0.0)
-	_drag(delta, Vector2(0.0, s["flow"] * 0.6), kf, 5.5)
+	kf += 0.035*carve*carve*clampf(spd/7.0,0.0,1.5)
+	var grip := 5.5*(1.0+minf(absf(rail_load),1.2)*0.18)
+	_drag(delta, Vector2(0.0, s["flow"] * 0.6), kf, grip)
 
 	spd = speed()
-	animator.set_ride_blend(carve, trim)
+	_update_tube(delta)
+	if state == State.WIPEOUT:
+		return
+	animator.set_motion(speed(), balance, in_tube, 1.0 - (s["normal"] as Vector3).y, absf(rail_load))
+	animator.set_ride_blend(clampf(rail_load,-1.0,1.0), trim)
 	if popup:
 		if _state_time >= POPUP_TIME:
 			state = State.RIDING
 			_state_time = 0.0
-			hint.emit("¡Arriba! Gira con A/D o el joystick para recorrer la ola")
+			hint.emit("¡Arriba! Gira con %s / %s o el joystick para recorrer la ola" % [Controles.key_label("surf_left"), Controles.key_label("surf_right")])
 		return
 
+	var ahead := (global_position.x-wave.peel_x)*wave.peel_dir
+	var maneuver := turns.step(delta,carve,hvel,float(s["u"])/maxf(float(s["face_width"]),0.1),ahead,wave.peel_dir,profile>0.12 and float(s["broken"])<0.5)
+	if not maneuver.is_empty():
+		maneuver_completed.emit(maneuver)
 	ride_time += delta
 	ride_distance += spd * delta
 	top_speed = maxf(top_speed, spd)
@@ -295,7 +406,7 @@ func _do_ride(delta: float, s: Dictionary, popup: bool) -> void:
 	# Equilibrio adelante/atrás: bajar en picado empuja hacia la punta, ir lento hacia la cola.
 	var slope_along := -(n.x * f.x + n.z * f.y) / maxf(n.y, 0.2)
 	var stall := clampf(1.0 - spd / 3.0, 0.0, 1.0)
-	var chop := _noise.get_noise_1d(_state_time * 1.7)
+	var chop := _noise.get_noise_1d(_state_time * 1.7) * (0.7 + wave.wind_chop)
 	balance += (balance_slope * -slope_along * clampf(spd / 6.0, 0.4, 1.2) - balance_stall * stall
 		+ balance_chop * chop + balance_trim * trim) * delta
 	balance -= balance * 0.9 * delta
@@ -307,11 +418,11 @@ func _do_ride(delta: float, s: Dictionary, popup: bool) -> void:
 		_danger = maxf(0.0, _danger - delta * 2.0)
 	if _danger > 0.3:
 		if balance > 0.0:
-			_wipeout("¡Al agua!", "Clavaste la punta. Echa el peso atrás (S / joystick abajo) en las bajadas.")
+			_wipeout("¡Al agua!", "Clavaste la punta. Echa el peso atrás (%s / joystick %s)." % [Controles.key_label("surf_up" if Ajustes.invert_weight else "surf_down"), "arriba" if Ajustes.invert_weight else "abajo"])
 		else:
-			_wipeout("¡Al agua!", "Te caíste de espaldas. Con poca velocidad, carga el pie delantero (W).")
+			_wipeout("¡Al agua!", "Te caíste de espaldas. Con poca velocidad, carga el pie delantero (%s)." % Controles.key_label("surf_down" if Ajustes.invert_weight else "surf_up"))
 		return
-	if s["broken"] > 0.55 and profile > 0.18:
+	if s["broken"] > 0.55 and profile > 0.18 and not in_tube:
 		_foam_time += delta
 	else:
 		_foam_time = maxf(0.0, _foam_time - delta)
@@ -357,7 +468,9 @@ func _wipeout(title: String, detail: String) -> void:
 	_end_detail = detail
 	_rider_detached = true
 	_fall_yaw = yaw
-	_spin = randf_range(-2.5, 2.5)
+	_fall_sign = -1.0 if balance < -0.15 or carve < -0.4 else 1.0
+	_spin = _fall_sign * (1.0 + clampf(speed() / 6.0, 0.0, 1.4))
+	in_tube = false
 	animator.travel("fall")
 
 
@@ -380,7 +493,8 @@ func _do_after(delta: float, s: Dictionary) -> void:
 		var upright := Basis(Vector3.UP, _fall_yaw)
 		var q := rider.global_basis.get_rotation_quaternion().slerp(upright.get_rotation_quaternion(),
 			1.0 - exp(-6.0 * delta))
-		rider.global_transform = Transform3D(Basis(q), rp)
+		var tumble := sin(minf(_state_time * 2.0, PI)) * 0.55
+		rider.global_transform = Transform3D(Basis(q) * Basis(Vector3.FORWARD, tumble * _fall_sign), rp)
 		# El leash no deja que la tabla se aleje más de su longitud.
 		var ankle := rider.global_position
 		var to := Vector2(global_position.x - ankle.x, global_position.z - ankle.z)
@@ -430,7 +544,7 @@ func _update_visual(delta: float, s: Dictionary) -> void:
 	var roll := 0.0
 	var pitch := -0.05
 	if is_riding() or state == State.DONE:
-		roll = carve * deg_to_rad(max_roll_deg) * clampf(speed() / 5.0, 0.3, 1.0)
+		roll = rail_load * deg_to_rad(max_roll_deg) * clampf(speed() / 5.0, 0.3, 1.0)
 		pitch = trim * 0.05
 	elif state == State.WIPEOUT:
 		roll = _roll_wipe
@@ -439,10 +553,37 @@ func _update_visual(delta: float, s: Dictionary) -> void:
 	visual.global_transform = Transform3D(b, global_position)
 	if not _rider_detached:
 		rider.global_transform = visual.global_transform
-	# Salpicadura de la cola: más cuanto más rápido y más cerrado el giro, hacia fuera de la curva.
+	# Small ballistic spray from the outside rail; surface ribbons carry the foam.
 	var spd := speed()
-	wake.emitting = state == State.RIDING and spd > 2.5
-	var spray := clampf((spd - 2.0) / 7.0 * (0.3 + 0.7 * absf(carve)), 0.05, 1.0)
-	wake.scale_amount_max = 0.25 + 0.6 * spray
-	wake.direction = Vector3(carve * 1.1, 1.0, -0.5)
-	wake.initial_velocity_max = 2.0 + 3.0 * absf(carve) * clampf(spd / 7.0, 0.0, 1.2)
+	var load := minf(absf(rail_load),1.2)
+	var spray := clampf((spd-2.5)/7.0,0.0,1.0)*(0.15+0.85*load)
+	wake.emitting=state==State.RIDING and spd>2.8 and spray>0.025
+	wake.position=Vector3(signf(rail_load)*0.18,0.04,-0.52)
+	wake.direction=Vector3(rail_load*1.7,0.65,-0.8)
+	wake.initial_velocity_min=0.45+spray*0.40
+	wake.initial_velocity_max=0.85+spray*3.1
+	wake.scale_amount_min=0.10
+	wake.scale_amount_max=0.16+spray*0.28
+	wake.spread=14.0+load*12.0
+	wake.color=Color(0.82,0.94,1.0,0.35+spray*0.45)
+
+
+
+func _update_tube(delta: float) -> void:
+	var data := wave.tube_at(global_position, 1.25 if in_tube else 1.5)
+	var was := in_tube
+	in_tube = state == State.RIDING and data["inside"]
+	if in_tube:
+		tube_seconds += delta
+		_tube_stint += delta
+		if not was:
+			hint.emit("¡Dentro del tubo! Mantén la línea y sal por el hombro abierto.")
+		_tube_hit = _tube_hit + delta if data["clearance"] < 0.0 else maxf(0.0, _tube_hit - delta * 2.0)
+		if _tube_hit > 0.20:
+			_wipeout("Cerró el tubo", "El labio te alcanzó. Mantente en el centro y busca la salida.")
+	elif was:
+		if data["ahead"] > 6.0 and _tube_stint > 0.6:
+			tube_exits += 1
+			tube_exit.emit(_tube_stint)
+		_tube_stint = 0.0
+		_tube_hit = 0.0

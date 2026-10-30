@@ -3,8 +3,10 @@ extends RefCounted
 ## Puntuación de una ola. La alimenta game.gd en cada paso de física mientras el
 ## surfista está de pie.
 ##   - Recorrido: 4 puntos por metro.
-##   - Giros: un giro cuenta cuando se mantiene el carve fuerte (>0.7) al menos
-##     0.35 s y luego se suelta. Vale 60 + 25·velocidad, por el multiplicador.
+##   - Gameplay: SurfTurns valida trayectoria y emite una maniobra real;
+##     award_maneuver aplica (60 + 25·velocidad) × combo × factor del tipo.
+##   - step conserva el detector sencillo anterior para compatibilidad con
+##     pruebas independientes; game.gd lo desactiva para evitar doble puntuación.
 ##   - Combo: cada giro dentro de 2.5 s del anterior sube el multiplicador (máx. ×8).
 ##   - Pocket: surfear a menos de 4 m del punto de rotura suma 40 puntos/s.
 ##   - Completar la ola: +1000.
@@ -18,6 +20,9 @@ var score := 0
 var combo := 1
 var best_combo := 1
 var turns := 0
+var tube_time := 0.0
+var tube_exits := 0
+var _tube_acc := 0.0
 var pocket_time := 0.0
 var distance := 0.0
 var top_speed := 0.0
@@ -34,6 +39,9 @@ func reset() -> void:
 	combo = 1
 	best_combo = 1
 	turns = 0
+	tube_time = 0.0
+	tube_exits = 0
+	_tube_acc = 0.0
 	pocket_time = 0.0
 	distance = 0.0
 	top_speed = 0.0
@@ -45,7 +53,7 @@ func reset() -> void:
 
 
 ## Paso de puntuación. ahead: distancia por delante del punto de rotura (m).
-func step(delta: float, speed: float, carve: float, ahead: float) -> void:
+func step(delta: float, speed: float, carve: float, ahead: float, detect_turns := true) -> void:
 	top_speed = maxf(top_speed, speed)
 	distance += speed * delta
 	_dist_acc += speed * delta * 4.0
@@ -54,10 +62,10 @@ func step(delta: float, speed: float, carve: float, ahead: float) -> void:
 		score += p
 		_dist_acc -= p
 
-	if absf(carve) > 0.7:
+	if detect_turns and absf(carve) > 0.7:
 		_carve_time += delta
 	else:
-		if _carve_time >= 0.35:
+		if detect_turns and _carve_time >= 0.35:
 			_turn(speed)
 		_carve_time = 0.0
 
@@ -78,17 +86,41 @@ func step(delta: float, speed: float, carve: float, ahead: float) -> void:
 	_in_pocket = pocket
 
 
-func _turn(speed: float) -> void:
+func _turn(speed: float, label_text := "GIRO", factor := 1.0) -> void:
 	turns += 1
 	if _combo_timer > 0.0:
 		combo = mini(combo + 1, MAX_COMBO)
 	_combo_timer = COMBO_WINDOW
 	best_combo = maxi(best_combo, combo)
-	var pts := int((60.0 + 25.0 * speed) * combo)
+	var pts := int((60.0 + 25.0 * speed) * combo * factor)
 	score += pts
-	event.emit("GIRO ×%d" % combo if combo > 1 else "GIRO", pts)
+	event.emit("%s ×%d" % [label_text,combo] if combo > 1 else label_text, pts)
 
 
 func finish_bonus() -> void:
 	score += 1000
 	event.emit("OLA COMPLETADA", 1000)
+
+
+func tube_step(delta: float, inside: bool) -> void:
+	if not inside:
+		return
+	tube_time += delta
+	_tube_acc += delta * 120.0
+	var pts := int(_tube_acc)
+	score += pts
+	_tube_acc -= pts
+
+func tube_exit_bonus(duration: float) -> void:
+	tube_exits += 1
+	var pts := 800 + int(duration * 100.0)
+	score += pts
+	event.emit("SALIDA DEL TUBO", pts)
+
+
+func award_maneuver(result: Dictionary) -> void:
+	var kinds := {"carving":["CARVING",1.0],"bottom_turn":["BOTTOM TURN",1.15],"cutback":["CUTBACK",1.55]}
+	var kind: String = result.get("kind","")
+	if not kinds.has(kind) or float(result.get("speed",0))<3.0:
+		return
+	_turn(float(result["speed"]),kinds[kind][0],kinds[kind][1])

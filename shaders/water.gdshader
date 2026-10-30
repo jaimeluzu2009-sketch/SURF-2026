@@ -20,8 +20,12 @@ uniform vec4 board = vec4(0.0);
 // Estela: x, z, edad (s), intensidad. La más reciente primero.
 uniform vec4 wake[12];
 uniform int wake_count = 0;
+uniform float wake_load[12];
+uniform vec3 board_rails = vec3(0.0,1.0,0.0);
+uniform vec4 wake_bounds = vec4(0.0);
 // 1 = altura codificada en color (lo usa tests/wave_parity.gd).
 uniform float debug_flat = 0.0;
+uniform float tube_strength = 0.0;
 
 varying vec3 world_pos;
 varying vec4 wave_terms;
@@ -125,26 +129,48 @@ void fragment() {
 	foam += sstep(0.9, 0.99, profile) * sstep(0.18, 0.4, steep) * 0.6;
 	foam += sstep(shore_z - 7.0, shore_z - 1.0, world_pos.z) * 0.9;
 
+	// Whitewater on the surface where the falling lip actually meets it.
+	float tube_ahead = (world_pos.x-peel_x)*peel_dir;
+	float tube_gate = started * sstep(-1.0, 0.4, tube_ahead) * (1.0-sstep(5.6,6.8,tube_ahead));
+	float impact = (u-front_width*1.66)/(0.34+0.23*breakup);
+	foam += clamp(tube_strength,0.0,1.0)*tube_gate*exp(-impact*impact)*(0.65+0.55*nz2);
+	// Thin separated ribbons read as broken water rather than a solid white stripe.
+	float ribbons = sstep(0.48,0.72,streak)*sstep(0.35,0.72,nz2);
+	foam += broken*exp(-pow((u-1.8)/4.0,2.0))*ribbons*0.35;
+
 	// Contacto de la tabla y estela: dos bordes en V y espuma fina en el centro.
 	float wk = 0.0;
-	if (board.w > 0.0 && distance(world_pos.xz, board.xy) < 45.0) {
-		float spd = clamp(board.z / 6.0, 0.25, 1.3);
-		float d0 = distance(world_pos.xz, board.xy);
-		wk += exp(-(d0 * d0) / 0.5) * spd;
-		for (int i = 0; i < 11; i++) {
-			if (i + 1 >= wake_count) {
-				break;
-			}
-			float tt;
-			float d = seg_dist(world_pos.xz, wake[i].xy, wake[i + 1].xy, tt);
-			float age = mix(wake[i].z, wake[i + 1].z, tt);
-			float strength = mix(wake[i].w, wake[i + 1].w, tt) * exp(-age * 0.55);
-			float half_w = 0.3 + age * 0.75;
-			float edge = (d - half_w) / (0.2 + age * 0.25);
-			float core = d / (0.25 + age * 0.2);
-			wk = max(wk, strength * (exp(-edge * edge) + 0.45 * exp(-core * core)));
+	if (world_pos.x>=wake_bounds.x && world_pos.z>=wake_bounds.y && world_pos.x<=wake_bounds.z && world_pos.z<=wake_bounds.w) {
+		if(board.w>0.0) {
+			vec2 f=normalize(board_rails.xy+vec2(0.00001));
+			vec2 rel=world_pos.xz-board.xy;
+			float along=dot(rel,f);
+			float across=dot(rel,vec2(f.y,-f.x));
+			float contact=exp(-pow((abs(across)-0.23)/0.11,2.0))*exp(-pow(along/0.72,4.0));
+			float pressure=0.45+0.45*max(sign(across)*board_rails.z,0.0);
+			wk=contact*pressure*clamp((board.z-0.8)/5.0,0.0,1.3);
 		}
-		wk *= 0.55 + 0.7 * nz2;
+		for(int i=0;i<11;i++) {
+			if(i+1>=wake_count) break;
+			float tt;
+			float d=seg_dist(world_pos.xz,wake[i].xy,wake[i+1].xy,tt);
+			float age=mix(wake[i].z,wake[i+1].z,tt);
+			float strength=mix(wake[i].w,wake[i+1].w,tt)*exp(-age*1.1)*(1.0-sstep(1.2,2.2,age));
+			float load=mix(wake_load[i],wake_load[i+1],tt);
+			strength*=1.0-sstep(float(wake_count)-2.5,float(wake_count)-1.0,float(i)+tt);
+			vec2 tangent=normalize(wake[i+1].xy-wake[i].xy+vec2(0.00001));
+			vec2 nearest=mix(wake[i].xy,wake[i+1].xy,tt);
+			float side=dot(world_pos.xz-nearest,vec2(-tangent.y,tangent.x));
+			float width=0.21+min(age,1.5)*0.32;
+			float ribbon=exp(-pow((abs(side)-width)/(0.065+age*0.10),2.0));
+			float outer=sign(load)*(width+abs(load)*age*0.30);
+			float fan=exp(-pow((side-outer)/(0.09+age*0.16),2.0))*abs(load)*0.65;
+			float core=exp(-pow(d/(0.14+age*0.09),2.0))*0.12;
+			// Restrict ribbons to each finite segment instead of extending a line across the sea.
+			float end_gate=exp(-max(d*d-side*side,0.0)/pow(0.15+age*0.10,2.0));
+			wk=max(wk,strength*(ribbon*0.85+fan+core)*end_gate);
+		}
+		wk*=0.40+0.70*nz2;
 	}
 	foam += wk;
 

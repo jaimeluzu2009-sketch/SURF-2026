@@ -138,6 +138,8 @@ func _update_stick() -> void:
 
 
 func _process(delta: float) -> void:
+	if not active or not visible:
+		_release_all()
 	_time += delta
 	_stand_flash = maxf(0.0, _stand_flash - delta)
 	if visible:

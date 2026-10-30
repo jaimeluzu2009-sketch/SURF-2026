@@ -3,11 +3,25 @@ extends Node
 ## Crea el AnimationTree del surfista:
 ## tumbado / remar / ponerse de pie / surfear (BlendSpace2D: giro × peso) / caer.
 
-const LOOPS := ["prone_idle", "paddle", "ride", "carve_left", "carve_right", "lean_fwd", "lean_back"]
+const LOOPS := ["prone_idle", "paddle", "ride", "carve_left", "carve_right", "lean_fwd", "lean_back", "tube_crouch"]
 
 var tree: AnimationTree
 var playback: AnimationNodeStateMachinePlayback
 var skeleton: Skeleton3D
+var _motion_speed := 0.0
+var _motion_balance := 0.0
+var _crouch := false
+var _breath := 0.0
+var _ride_target := Vector2.ZERO
+var _ride_blend := Vector2.ZERO
+var _speed_target := 0.0
+var _balance_target := 0.0
+var _slope_target := 0.0
+var _tuck := 0.0
+var _turn_load := 0.0
+var _secondary_source := {}
+var _secondary_result := {}
+var _posing := false
 
 
 func setup(model: Node) -> void:
@@ -34,7 +48,15 @@ func setup(model: Node) -> void:
 		"lean_fwd": Vector2(0, 1), "lean_back": Vector2(0, -1)}
 	for anim_name in points:
 		ride.add_blend_point(_anim(anim_name), points[anim_name], -1, anim_name)
-	sm.add_node("ride", ride)
+	var surf := AnimationNodeBlendTree.new()
+	surf.add_node("surf", ride)
+	surf.add_node("tuck", _anim("tube_crouch"))
+	var mix := AnimationNodeBlend2.new()
+	surf.add_node("mix", mix)
+	surf.connect_node("mix", 0, "surf")
+	surf.connect_node("mix", 1, "tuck")
+	surf.connect_node("output", 0, "mix")
+	sm.add_node("ride", surf)
 
 	_link(sm, "prone_idle", "paddle", 0.3)
 	_link(sm, "paddle", "prone_idle", 0.4)
@@ -56,6 +78,7 @@ func setup(model: Node) -> void:
 	tree.active = true
 	playback = tree.get("parameters/playback")
 	playback.start("prone_idle")
+	skeleton.skeleton_updated.connect(_secondary_pose)
 
 
 func _anim(anim_name: String) -> AnimationNodeAnimation:
@@ -86,7 +109,10 @@ func current() -> String:
 
 
 func set_ride_blend(carve: float, trim: float) -> void:
-	tree.set("parameters/ride/blend_position", Vector2(carve, trim))
+	_ride_target = Vector2(clampf(carve,-1.0,1.0),clampf(trim,-1.0,1.0))
+	var total := absf(_ride_target.x) + absf(_ride_target.y)
+	if total > 1.0:
+		_ride_target /= total
 
 
 func set_paddle_speed(s: float) -> void:
@@ -97,3 +123,45 @@ func set_paddle_speed(s: float) -> void:
 func bone_position(bone: String) -> Vector3:
 	var i := skeleton.find_bone(bone)
 	return skeleton.get_global_transform_interpolated() * skeleton.get_bone_global_pose(i).origin
+
+
+func set_motion(spd: float, balance: float, crouch: bool, slope := 0.0, turn_load := 0.0) -> void:
+	_speed_target = maxf(0.0, spd)
+	_balance_target = clampf(balance, -1.0, 1.0)
+	_slope_target = clampf(slope, 0.0, 1.0)
+	_crouch = crouch
+	_turn_load = clampf(turn_load,0.0,1.2)
+
+func _process(delta: float) -> void:
+	_breath = fmod(_breath + delta, 100.0)
+	var k := 1.0 - exp(-8.0 * delta)
+	_motion_speed = lerpf(_motion_speed, _speed_target, k)
+	_motion_balance = lerpf(_motion_balance, _balance_target, k)
+	_ride_blend = _ride_blend.lerp(_ride_target, k)
+	var tuck_goal := 0.92 if _crouch else clampf(_motion_speed * 0.008 + _slope_target * 0.18 + _turn_load * 0.10, 0.0, 0.28)
+	_tuck = lerpf(_tuck, tuck_goal, k)
+	if tree:
+		tree.set("parameters/ride/surf/blend_position", _ride_blend)
+		tree.set("parameters/ride/mix/blend_amount", _tuck)
+
+func _secondary_pose() -> void:
+	if _posing or current() != "ride":
+		return
+	_posing = true
+	# Upper body only: compression uses an authored pose with feet on the board.
+	for entry in [["chest", Vector3.RIGHT, _motion_balance * 0.06 + sin(_breath * 2.4) * 0.010],
+		["spine", Vector3.RIGHT, -0.025 * clampf(_motion_speed / 8.0, 0.0, 1.0)],
+		["head", Vector3.UP, _ride_blend.x * 0.10],
+		["upper_arm_L", Vector3.FORWARD, sin(_breath * 1.8) * 0.025],
+		["upper_arm_R", Vector3.FORWARD, -sin(_breath * 1.8) * 0.025]]:
+		var bone := skeleton.find_bone(entry[0])
+		if bone < 0:
+			continue
+		var source := skeleton.get_bone_pose_rotation(bone)
+		if _secondary_result.has(bone) and source.is_equal_approx(_secondary_result[bone]):
+			source = _secondary_source[bone]
+		_secondary_source[bone] = source
+		var result: Quaternion = source * Quaternion(entry[1], entry[2])
+		_secondary_result[bone] = result
+		skeleton.set_bone_pose_rotation(bone, result)
+	_posing = false

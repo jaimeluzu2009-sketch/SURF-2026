@@ -103,6 +103,8 @@ static func apply_to_wave(spot: Dictionary, wave: WaveModel) -> void:
 	wave.set_spacing = wave.speed * 14.0  # periodo típico del mar de fondo en Ecuador
 	# El pico está siempre 6 m "detrás" del lineup, del lado del cabo.
 	wave.peel_x0 = -6.0 * wave.peel_dir
+	wave.tide = 0.0
+	wave.tube_strength = 1.0 if spot["id"] == "rinconada" else 0.0
 	wave.reset()
 
 

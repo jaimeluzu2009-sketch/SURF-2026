@@ -26,6 +26,9 @@ var spot: Dictionary
 var lineup := Vector3.ZERO
 var mode := Mode.MENU
 var _missed_timer := -1.0
+var session := SurfSession.new()
+var barrel: Barrel
+var surf_audio: SurfAudio
 
 
 func _ready() -> void:
@@ -33,8 +36,12 @@ func _ready() -> void:
 	for a in args:
 		if a.begins_with("--spot="):
 			Ajustes.spot = int(a.get_slice("=", 1))
+	for a in args:
+		if a.begins_with("--style="):
+			Perfil.set_style(int(a.get_slice("=", 1)))
 	spot = Spots.get_spot(Ajustes.spot)
-	Spots.apply_to_wave(spot, wave)
+	session.setup(spot, Ajustes.session_condition)
+	session.next(wave)
 	lineup = Spots.lineup(spot)
 	beach.build(spot)
 	_apply_spot_look()
@@ -42,9 +49,17 @@ func _ready() -> void:
 	water.wave = wave
 	water.follow = surfer
 	surfer.wave = wave
+	barrel = Barrel.new()
+	barrel.name = "Barrel"
+	barrel.wave = wave
+	add_child(barrel)
+	surf_audio = SurfAudio.new()
+	add_child(surf_audio)
+	surfer.tube_exit.connect(func(duration): score.tube_exit_bonus(duration))
 	cam.wave = wave
 	cam.surfer = surfer
 	cam.lineup = lineup
+	surfer.maneuver_completed.connect(score.award_maneuver)
 	surfer.ride_ended.connect(_on_ride_ended)
 	surfer.hint.connect(func(t): hud.show_hint(t))
 	score.event.connect(func(t, p): hud.popup(t, p))
@@ -54,14 +69,14 @@ func _ready() -> void:
 	menus.resume_requested.connect(resume)
 	menus.menu_requested.connect(to_menu)
 	menus.customize_preview.connect(_on_customize_preview)
-	Fx.setup_spray(lip_spray, 50, 0.7, 0.08, 0.3)
+	Fx.setup_spray(lip_spray, 28, 0.45, 0.04, 0.13)
 	lip_spray.direction = Vector3(0, 1, 0.8)
 	lip_spray.spread = 30.0
-	lip_spray.initial_velocity_min = 2.5
-	lip_spray.initial_velocity_max = 5.5
+	lip_spray.initial_velocity_min = 0.8
+	lip_spray.initial_velocity_max = 2.4
 	lip_spray.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
 	lip_spray.emission_box_extents = Vector3(1.5, 0.2, 0.4)
-	Fx.setup_spray(surfer.wake, 40, 0.5, 0.12, 0.5)
+	Fx.setup_rail_spray(surfer.wake,maxi(6,int(32*Ajustes.preset()["particles"])))
 	surfer.wake.direction = Vector3(0, 1, -1)
 	surfer.wake.spread = 30.0
 	surfer.wake.initial_velocity_min = 1.5
@@ -79,6 +94,22 @@ func _ready() -> void:
 		bot.name = "Bot"
 		bot.setup(self, args)
 		add_child(bot)
+	elif "--wake-test" in args:
+		add_child(load("res://tests/wake_test.gd").new())
+	elif "--turns-test" in args:
+		add_child(load("res://tests/turns_test.gd").new())
+	elif "--water-look-test" in args:
+		add_child(load("res://tests/water_look_test.gd").new())
+	elif "--polish-test" in args:
+		add_child(load("res://tests/surfer_polish_test.gd").new())
+	elif "--styles-test" in args:
+		add_child(load("res://tests/styles_test.gd").new())
+	elif "--controls-test" in args:
+		var qa: Node = load("res://tests/controls_test.gd").new()
+		add_child(qa)
+	elif "--features-test" in args:
+		var qa: Node = load("res://tests/features_test.gd").new()
+		add_child(qa)
 	elif args.size() > 0 and args[0].begins_with("--ui-shots=") and ResourceLoader.exists("res://tests/ui_shots.gd"):
 		var shots: Node = load("res://tests/ui_shots.gd").new()
 		shots.setup(self, args)
@@ -124,7 +155,7 @@ func _apply_quality() -> void:
 		RenderingServer.SHADOW_QUALITY_SOFT_MEDIUM][Ajustes.quality])
 	world_env.environment.glow_enabled = p["glow"]
 	cam.far = p["far"]
-	lip_spray.amount = maxi(10, int(70 * p["particles"]))
+	lip_spray.amount = maxi(10, int(28 * p["particles"]))
 
 
 # ------------------------------------------------------------------ modos
@@ -132,6 +163,7 @@ func _apply_quality() -> void:
 func to_menu() -> void:
 	get_tree().paused = false
 	mode = Mode.MENU
+	Controles.paddle_latched = false
 	wave.reset()
 	_place_surfer_at_lineup()
 	surfer.set_frozen(true)
@@ -141,6 +173,8 @@ func to_menu() -> void:
 
 
 func start_play() -> void:
+	if session.index != Ajustes.session_condition:
+		session.setup(spot, Ajustes.session_condition)
 	get_tree().paused = false
 	menus.close()
 	mode = Mode.PLAY
@@ -155,6 +189,7 @@ func pause() -> void:
 	if mode != Mode.PLAY:
 		return
 	mode = Mode.PAUSE
+	Controles.paddle_latched = false
 	get_tree().paused = true
 	menus.open("pause")
 
@@ -193,13 +228,15 @@ func _unhandled_input(event: InputEvent) -> void:
 # ------------------------------------------------------------------ olas
 
 func restart() -> void:
-	wave.reset()
+	hud.reset_ride_feedback()
+	session.next(wave)
 	score.reset()
 	_place_surfer_at_lineup()
 	_missed_timer = -1.0
-	var side := "derecha: al pararte, gira a tu derecha (D o flecha derecha)" if wave.peel_dir < 0.0 \
-		else "izquierda: al pararte, gira a tu izquierda (A o flecha izquierda)"
+	var side := "derecha: al pararte, gira a tu derecha (%s)" % Controles.key_label("surf_right") if wave.peel_dir < 0.0 \
+		else "izquierda: al pararte, gira a tu izquierda (%s)" % Controles.key_label("surf_left")
 	hud.show_hint("Es una %s. Espera tumbado y rema hacia la playa cuando la ola esté a unos 10 m." % side, 7.0)
+	hud.show_hint(session.description() + ". " + ("Tubo activo: mantén la línea en la cara." if wave.tube_strength > 0.0 else side), 7.0)
 
 
 func _place_surfer_at_lineup() -> void:
@@ -221,14 +258,15 @@ func _physics_process(delta: float) -> void:
 	if _missed_timer >= 0.0:
 		_missed_timer -= delta
 		if _missed_timer < 0.0:
-			wave.reset()
+			session.next(wave)
 			score.reset()
 			if surfer.global_position.distance_to(lineup) > 14.0:
 				_place_surfer_at_lineup()
 			hud.show_hint("Nueva ola en camino. Colócate y rema cuando se acerque.", 4.0)
 	if surfer.state == Surfer.State.RIDING:
 		var ahead := (surfer.global_position.x - wave.peel_x) * wave.peel_dir
-		score.step(delta, surfer.speed(), surfer.carve, ahead if wave.started > 0.5 else 99.0)
+		score.step(delta, surfer.speed(), surfer.carve, ahead if wave.started > 0.5 else 99.0, false)
+		score.tube_step(delta, surfer.in_tube)
 		if wave.crest_z > FINISH_Z:
 			surfer.finish_success()
 			score.finish_bonus()
@@ -239,9 +277,13 @@ func _process(delta: float) -> void:
 	var t := wave.time
 	if get_tree().physics_interpolation:
 		t -= (1.0 - Engine.get_physics_interpolation_fraction()) * get_physics_process_delta_time()
+	if mode == Mode.MENU:
+		surfer.update_showcase()
 	water.sync(t)
+	barrel.sync(t, delta)
+	surf_audio.sync(delta, surfer, mode == Mode.PLAY)
 	water.set_board(surfer.get_global_transform_interpolated().origin, surfer.speed(), surfer.touching_water(),
-		surfer.wake_points())
+		surfer.wake_points(),surfer.wake_loads(),Vector2(surfer.forward().x,surfer.forward().z),surfer.rail_load)
 	_update_lip_spray(t)
 	hud.update_state(surfer, wave, score, delta)
 	touch.stand_ready = surfer.can_stand and surfer.state == Surfer.State.PRONE
@@ -249,7 +291,7 @@ func _process(delta: float) -> void:
 	touch.visible = Ajustes.touch_enabled() and mode == Mode.PLAY
 	if mode == Mode.PLAY and Input.is_action_just_pressed("surf_restart"):
 		restart()
-	if Input.is_action_just_pressed("toggle_fps"):
+	if mode == Mode.PLAY and Controles.capture_action == "" and Input.is_action_just_pressed("toggle_fps"):
 		Ajustes.show_fps = not Ajustes.show_fps
 		Ajustes.apply()
 
@@ -260,7 +302,7 @@ func _update_lip_spray(t: float) -> void:
 	lip_spray.emitting = on
 	if on:
 		var x := d[1] + wave.peel_dir * 1.5
-		var z := d[0] + 0.6
+		var z := d[0] + (wave.front_width * 1.66 if wave.tube_strength > 0.0 else 0.6)
 		lip_spray.global_position = Vector3(x, wave.height_at(x, z) + 0.2, z)
 
 
@@ -273,6 +315,8 @@ func _on_ride_ended(success: bool, title: String, detail: String) -> void:
 		"speed": surfer.top_speed,
 		"combo": score.best_combo,
 		"pocket": score.pocket_time,
+		"tube_time": surfer.tube_seconds,
+		"tube_exits": surfer.tube_exits,
 	}
 	var gains := Perfil.record_ride(spot, stats)
 	ride_result.emit(stats, gains)

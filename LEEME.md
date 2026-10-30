@@ -179,3 +179,59 @@ seguridad de los datos y, en cuentas personales nuevas, la prueba cerrada con te
 - Bodyboard como segunda forma de jugar (muy popular en Manta).
 - Corrientes en La FAE.
 - Tubo, sobre todo para La Rinconada (el agua es un campo de alturas: todavía no hay labio que se cierre sobre el surfista).
+
+
+## Versión 1.1.0 — seis mejoras
+
+Control más tolerante, tubos en La Rinconada, audio, animación secundaria y ropa de playa, condiciones de sesión, APK/AAB actualizados. Detalle y límites: [VALIDACION_1_1.md](VALIDACION_1_1.md). La ejecución en móviles reales sigue pendiente.
+
+
+## Controles configurables — 1.1.1
+
+En **Ajustes > Controles**: sensibilidad de giro (50–150 %), zona muerta radial (0–40 %), invertir peso adelante/atrás al surfear, controles táctiles automáticos/siempre/nunca, tamaño, modo zurdo y remada mantener/alternar. Más abajo, pulsa cada acción para reasignar su tecla; se impiden conflictos, Esc cancela y permanece como pausa. Restablecer controles recupera todos los valores originales. Las teclas reasignadas sustituyen las alternativas originales de esa acción, conservando los botones del mando.
+
+Pruebas: `godot --headless --path . -- --qa --controls-test`; variante gráfica con `--capture`. Incluyen eventos de teclado, conflictos, cancelación, guardado/recarga en archivo aislado, intercambio de teclas, conservación del mando, zona muerta y restauración. No se han probado físicamente con un mando o móvil.
+
+
+### Tres apariencias 3D
+En **Surfista y tabla > Apariencia**: Local tropical (licra turquesa, bermuda azul, pelo rizado), Competidor técnico (neopreno negro, hombros coral, pelo peinado) y Retro costero (licra crema, bermuda terracota con remate turquesa, pelo ondulado). Las tres están disponibles desde nivel 1 e incluyen su propia tabla con cantos coloreados. Los colores siguen siendo editables. La selección se guarda en el perfil; se mantienen los dos conjuntos originales en Personalizado.
+
+Modelos originales generados con Blender mediante `tools/build_styles.py`, reutilizando el generador, el esqueleto de 19 huesos y las nueve animaciones existentes. Son una interpretación simplificada y optimizada de las propuestas, no una reproducción fotográfica de los montajes. Sin recursos externos ni nuevas dependencias de ejecución. Rango de 3.800–4.900 triángulos por surfista, con materiales pequeños generados por SurfMaterials.
+
+Prueba de integración: `godot --headless --path . -- --qa --styles-test`. Verifica huesos, poses de reposo, clips, selección real de mallas, colores, retorno a conjuntos anteriores y guardado/recuperación en `user://styles-test.cfg` aislado del perfil del jugador. Sin `--headless`, también guarda capturas reales desde la misma cámara en `capturas/tres_apariencias/`. La exportación y las partidas automáticas se registran en `VALIDACION_APARIENCIAS.md`. El rendimiento y el aspecto en un móvil físico siguen pendientes.
+
+
+### Surfista, animación y cámara (proyecto; pendiente de empaquetar)
+- Anatomía más suave en las cinco mallas de surfista: volumen de hombros, brazos y piernas, ajuste de palmas y detalles faciales geométricos. Bordes de ropa delimitados por bucles de malla. Se mantienen las tres apariencias y los dos conjuntos originales.
+- Remada con trayectoria cíclica continua; mezcla amortiguada de giro y peso. Postura adicional tube_crouch con los pies fijados mediante el mismo IK de las poses originales. La compresión responde a velocidad, pendiente y entrada al tubo. Las correcciones secundarias no se acumulan ni modifican las rodillas por separado.
+- Cámara con anticipación de velocidad y giro, transición gradual al tubo y búsqueda de una vista libre usando la superficie real de la ola. Dentro del tubo limita su altura entre el agua y el labio, y ajusta la distancia para permanecer en la abertura activa.
+- Ajustes > Controles > Distancia de cámara: 75–135 %, guardada y restablecida con el resto de controles. Reducir movimiento mantiene el FOV estable y desactiva anticipación/cambio de cámara de tubo.
+- `tests/surfer_polish_test.gd` se ejecuta con `--qa --polish-test`; usa ajustes aislados y guarda capturas reales en capturas/mejoras_surfista/despues. Las referencias anteriores están en antes.
+- Informe de resultados: VALIDACION_SURFISTA_CAMARA.md. No se generó APK, AAB ni exportación web con estos cambios; los paquetes anteriores siguen correspondiendo al estado anterior. Cualquier nueva exportación requiere confirmación del usuario.
+
+
+### Ola y tubo: nueva presentación visual (sin empaquetar)
+- Tubo con una sola superficie indexada, normales suaves y tangentes. Se elimina la doble capa opaca anterior. Calidad baja/media/alta: 361/783/1295 vértices y 648/1456/2448 triángulos.
+- Material translúcido azul verdoso, reflejo suave y transmisión aproximada, normales animadas y espuma fragmentada en labio y abertura. Sin texturas de pantalla/profundidad, sin SSR ni refracción dependiente del renderizador.
+- Faldón decorativo de espuma que cae hasta el agua, se desvanece en su parte inferior y no añade colisiones. La parte sólida del arco conserva la fórmula de WaveModel.tube_section; la trayectoria sobre el agua y las mecánicas no se cambian.
+- Espuma superficial en el impacto del labio y pequeñas salpicaduras de rompimiento, con menos partículas y menor tamaño. El tubo se traslada cada fotograma siguiendo el instante interpolado de la ola y reconstruye su geometría a 20/30 Hz.
+- Capturas reales comparables en capturas/ola_tubo/antes y despues. Prueba: `godot --path . -- --qa --spot=1 --water-look-test`.
+- Resultados y límites: VALIDACION_OLA_TUBO.md. No se generó APK, AAB ni exportación web; cualquier exportación posterior requiere confirmación.
+
+
+### Giros y maniobras (proyecto; sin nueva exportación)
+- Los controles existentes siguen funcionando: más peso en el pie trasero cierra el radio; cargar delante lo abre. A más velocidad, el arco se abre gradualmente. Los cantos, la animación, la cámara y la intensidad de la estela usan la misma carga suavizada.
+- Carving: arco sostenido sobre la cara; bottom turn: arco que parte de la zona baja y gana altura; cutback: giro amplio desde el hombro que vuelve hacia la rotura. SurfTurns comprueba dirección y recorrido reales, velocidad, tiempo y posición en la ola.
+- Se reconoce al soltar el giro o cambiar de lado. Mantener una tecla sin curvar la trayectoria, girar sin desplazamiento, salir de la cara limpia o completar círculos enteros no da una maniobra.
+- Avisos y combos existentes: CARVING, BOTTOM TURN y CUTBACK. Factores de puntuación 1 / 1,15 / 1,55 sobre la base existente. Una maniobra se cuenta una sola vez. Al reiniciar se limpian los avisos de la ola anterior.
+- Capturas del motor: capturas/giros. Pruebas: `godot --path . -- --qa --turns-test`. Informe: VALIDACION_GIROS.md.
+- No se generó APK, AAB ni exportación web. Los paquetes existentes conservan la versión anterior; una nueva exportación requiere confirmación.
+
+
+### Estela y salpicaduras de tabla (sin empaquetar)
+- Espuma fina en los cantos y rastro curvo desde la cola, con apertura adicional hacia el exterior del giro. Usa velocidad, carga firmada del canto y antigüedad de cada segmento.
+- Las gotas del surfista usan una textura procedural compacta de 32×64 y un quad alargado; desaparecen en 0,4 s, salen del canto exterior y cambian de lado con el giro. Cantidades baja/media/alta: 11/22/32. No se cambia el efecto del labio del tubo.
+- Al detenerse no se siguen estampando segmentos. Después de una caída, la espuma anterior se desvanece en lugar de desaparecer de golpe; la historia se elimina tras 2,2 s.
+- El shader calcula la estela dentro de su rectángulo local, con segmentos finitos y extremos atenuados. No requiere pantallas auxiliares, texturas externas ni mallas adicionales para la espuma superficial.
+- Capturas comparativas: capturas/estela/antes y despues. Pruebas: --qa --wake-test; capturas de maniobras reales: --qa --turns-test --wake-shots. Informe: VALIDACION_ESTELA.md.
+- No se generó APK, AAB ni exportación web. Estos cambios requieren una futura exportación autorizada para llegar a los paquetes existentes.

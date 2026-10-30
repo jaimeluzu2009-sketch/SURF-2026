@@ -22,9 +22,15 @@ var touch_mode := 0
 var adaptive := true
 ## Audio (bus Master, 0-1). El juego todavía no tiene sonidos, pero el control es real.
 var volume := 0.8
+var session_condition := 1
 ## Controles
 var touch_size := 1.0         ## Tamaño de los controles táctiles (0.8-1.4)
 var left_handed := false      ## Joystick a la derecha y botones a la izquierda
+var camera_distance := 1.0    ## Distancia de seguimiento (0.75-1.35)
+var steering_sensitivity := 1.0
+var stick_deadzone := 0.15
+var invert_weight := false
+var key_bindings: Dictionary = {}
 var paddle_toggle := false    ## Remar: true = un toque activa/desactiva, false = mantener
 ## Accesibilidad
 var ui_scale := 1.0           ## Escala de toda la interfaz (0.9-1.3)
@@ -48,8 +54,13 @@ var _fast_windows := 0
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	persist = not ("--bot" in OS.get_cmdline_user_args() or "--qa" in OS.get_cmdline_user_args())
 	_defaults()
-	_load()
+	if persist:
+		_load()
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--condition="):
+			session_condition = clampi(int(a.get_slice("=", 1)), 0, 2)
 	apply()
 
 
@@ -112,7 +123,7 @@ func _process(delta: float) -> void:
 		return
 	# Un fotograma de más de 0.25 s es una pausa o una pestaña en segundo plano
 	# (el navegador frena la página): no cuenta como falta de rendimiento.
-	if delta > 0.25:
+	if delta > 0.25 or not get_window().has_focus():
 		_acc_time = 0.0
 		_acc_frames = 0
 		return
@@ -123,8 +134,7 @@ func _process(delta: float) -> void:
 	var fps := _acc_frames / _acc_time
 	_acc_time = 0.0
 	_acc_frames = 0
-	if fps < 10.0:
-		return  # demasiado lento para ser real: ventana oculta o minimizada
+	# Una ventana enfocada a menos de 10 FPS sí debe reducir resolución.
 	var vp := get_viewport()
 	if fps < fps_limit * 0.85:
 		_slow_windows += 1
@@ -144,7 +154,7 @@ func _process(delta: float) -> void:
 
 func _load() -> void:
 	var cfg := ConfigFile.new()
-	if cfg.load(PATH) != OK:
+	if cfg.load(config_path()) != OK:
 		return
 	quality = clampi(cfg.get_value("video", "calidad", quality), 0, PRESETS.size() - 1)
 	fps_limit = cfg.get_value("video", "fps", fps_limit)
@@ -153,7 +163,14 @@ func _load() -> void:
 	touch_mode = cfg.get_value("controles", "tactiles", touch_mode)
 	spot = cfg.get_value("juego", "spot", spot)
 	volume = cfg.get_value("audio", "volumen", volume)
+	session_condition = clampi(cfg.get_value("juego", "condicion", 1), 0, 2)
 	touch_size = cfg.get_value("controles", "tamano", touch_size)
+	steering_sensitivity = clampf(float(cfg.get_value("controles", "sensibilidad", 1.0)), 0.5, 1.5)
+	camera_distance = clampf(float(cfg.get_value("controles", "distancia_camara", 1.0)), 0.75, 1.35)
+	stick_deadzone = clampf(float(cfg.get_value("controles", "zona_muerta", 0.15)), 0.0, 0.4)
+	invert_weight = bool(cfg.get_value("controles", "invertir_peso", false))
+	var saved_bindings: Variant = cfg.get_value("controles", "teclas", {})
+	key_bindings = saved_bindings if saved_bindings is Dictionary else {}
 	left_handed = cfg.get_value("controles", "zurdo", left_handed)
 	paddle_toggle = cfg.get_value("controles", "remar_alternar", paddle_toggle)
 	ui_scale = cfg.get_value("accesibilidad", "escala", ui_scale)
@@ -173,11 +190,24 @@ func _save() -> void:
 	cfg.set_value("controles", "tactiles", touch_mode)
 	cfg.set_value("juego", "spot", spot)
 	cfg.set_value("audio", "volumen", volume)
+	cfg.set_value("juego", "condicion", session_condition)
 	cfg.set_value("controles", "tamano", touch_size)
 	cfg.set_value("controles", "zurdo", left_handed)
+	cfg.set_value("controles", "sensibilidad", steering_sensitivity)
+	cfg.set_value("controles", "distancia_camara", camera_distance)
+	cfg.set_value("controles", "zona_muerta", stick_deadzone)
+	cfg.set_value("controles", "invertir_peso", invert_weight)
+	cfg.set_value("controles", "teclas", key_bindings)
 	cfg.set_value("controles", "remar_alternar", paddle_toggle)
 	cfg.set_value("accesibilidad", "escala", ui_scale)
 	cfg.set_value("accesibilidad", "ayudas", show_hints)
 	cfg.set_value("accesibilidad", "contraste", high_contrast)
 	cfg.set_value("accesibilidad", "menos_movimiento", reduce_motion)
-	cfg.save(PATH)
+	cfg.save(config_path())
+
+
+func config_path() -> String:
+	var args := OS.get_cmdline_user_args()
+	if "--qa" in args and "--polish-test" in args:
+		return "user://polish-test.cfg"
+	return "user://controls-test.cfg" if "--qa" in args and "--controls-test" in args else PATH

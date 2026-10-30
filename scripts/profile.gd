@@ -8,23 +8,30 @@ const PATH := "user://perfil.cfg"
 
 ## Personalización. "level" es el nivel de carrera que la desbloquea.
 const WETSUITS := [
+	{"id": "tropical", "name": "Turquesa tropical", "color": Color(0.10, 0.62, 0.66), "level": 1},
+	{"id": "crema", "name": "Crema costera", "color": Color(0.88, 0.85, 0.75), "level": 1},
 	{"id": "negro", "name": "Negro clásico", "color": Color(0.09, 0.095, 0.105), "level": 1},
 	{"id": "pacifico", "name": "Azul Pacífico", "color": Color(0.05, 0.16, 0.30), "level": 1},
 	{"id": "coral", "name": "Coral", "color": Color(0.55, 0.16, 0.12), "level": 3},
 	{"id": "arena", "name": "Arena", "color": Color(0.48, 0.40, 0.28), "level": 5},
 ]
 const ACCENTS := [
+	{"id": "azulmar", "name": "Azul profundo", "color": Color(0.055, 0.13, 0.22), "level": 1},
+	{"id": "competicion", "name": "Coral técnico", "color": Color(0.94, 0.39, 0.29), "level": 1},
+	{"id": "terracota", "name": "Terracota", "color": Color(0.76, 0.31, 0.20), "level": 1},
 	{"id": "amarillo", "name": "Amarillo Ecuador", "color": Color(0.98, 0.80, 0.10), "level": 1},
 	{"id": "turquesa", "name": "Turquesa", "color": Color(0.10, 0.70, 0.68), "level": 1},
 	{"id": "coral", "name": "Coral", "color": Color(0.96, 0.42, 0.33), "level": 2},
 	{"id": "blanco", "name": "Blanco", "color": Color(0.92, 0.92, 0.9), "level": 4},
 ]
 const DECKS := [
+	{"id": "costero", "name": "Turquesa costero", "color": Color(0.19, 0.57, 0.57), "level": 1},
 	{"id": "blanco", "name": "Blanco", "color": Color(0.95, 0.94, 0.90), "level": 1},
 	{"id": "arena", "name": "Arena", "color": Color(0.86, 0.76, 0.58), "level": 2},
 	{"id": "turquesa", "name": "Turquesa", "color": Color(0.55, 0.85, 0.82), "level": 4},
 ]
 const BOTTOMS := [
+	{"id": "arena", "name": "Arena clara", "color": Color(0.91, 0.86, 0.73), "level": 1},
 	{"id": "turquesa", "name": "Turquesa", "color": Color(0.30, 0.72, 0.76), "level": 1},
 	{"id": "coral", "name": "Coral", "color": Color(0.94, 0.45, 0.36), "level": 1},
 	{"id": "pacifico", "name": "Azul Pacífico", "color": Color(0.08, 0.28, 0.55), "level": 3},
@@ -33,6 +40,7 @@ const BOTTOMS := [
 const SLOTS := {"wetsuit": WETSUITS, "accent": ACCENTS, "deck": DECKS, "bottom": BOTTOMS}
 
 const ACHIEVEMENTS := [
+	{"id": "barrel", "name": "BARRELS", "desc": "Sal de un tubo tras pasar al menos 0,6 s dentro."},
 	{"id": "primera", "name": "Primera ola", "desc": "Completa una ola en cualquier spot."},
 	{"id": "trotamundos", "name": "Ruta del Spondylus", "desc": "Completa una ola en los tres spots."},
 	{"id": "combo6", "name": "Encadenado", "desc": "Consigue un combo ×6."},
@@ -52,11 +60,20 @@ var records := {}
 ## challenges_done[spot_id] = [ids]
 var challenges_done := {}
 var achievements := {}
+const STYLES := [
+	{"id": "custom", "name": "Personalizado", "outfit": 0},
+	{"id": "local", "name": "Local tropical", "outfit": 1, "look": {"wetsuit": "tropical", "accent": "azulmar", "deck": "blanco", "bottom": "turquesa"}},
+	{"id": "pro", "name": "Competidor técnico", "outfit": 0, "look": {"wetsuit": "negro", "accent": "competicion", "deck": "blanco", "bottom": "coral"}},
+	{"id": "retro", "name": "Retro costero", "outfit": 1, "look": {"wetsuit": "crema", "accent": "terracota", "deck": "costero", "bottom": "arena"}},
+]
+var style_id := "custom"
+var outfit := 0
 var look := {"wetsuit": "negro", "accent": "amarillo", "deck": "blanco", "bottom": "turquesa"}
 
 
 func _ready() -> void:
-	_load()
+	if Ajustes.persist:
+		_load()
 
 
 # ------------------------------------------------------------------ nivel
@@ -167,6 +184,8 @@ func record_ride(spot: Dictionary, stats: Dictionary) -> Dictionary:
 	rec["time"] = maxf(rec.get("time", 0.0), stats["time"])
 	rec["speed"] = maxf(rec.get("speed", 0.0), stats["speed"])
 	rec["combo"] = maxi(rec.get("combo", 1), stats["combo"])
+	rec["tube_time"] = maxf(rec.get("tube_time", 0.0), stats.get("tube_time", 0.0))
+	rec["tube_exits"] = maxi(rec.get("tube_exits", 0), stats.get("tube_exits", 0))
 	if stats["success"]:
 		rec["completed"] = true
 	records[sid] = rec
@@ -176,6 +195,7 @@ func record_ride(spot: Dictionary, stats: Dictionary) -> Dictionary:
 	out["level_after"] = level()
 
 	var checks := {
+		"barrel": stats.get("tube_exits", 0) > 0,
 		"primera": waves_completed >= 1,
 		"trotamundos": Spots.LIST.all(func(s): return records.get(s["id"], {}).get("completed", false)),
 		"combo6": stats["combo"] >= 6,
@@ -198,7 +218,7 @@ func record_ride(spot: Dictionary, stats: Dictionary) -> Dictionary:
 
 func _load() -> void:
 	var cfg := ConfigFile.new()
-	if cfg.load(PATH) != OK:
+	if cfg.load(config_path()) != OK:
 		return
 	xp = cfg.get_value("carrera", "xp", 0)
 	waves_ridden = cfg.get_value("carrera", "olas", 0)
@@ -207,6 +227,10 @@ func _load() -> void:
 	records = cfg.get_value("carrera", "records", {})
 	challenges_done = cfg.get_value("carrera", "desafios", {})
 	achievements = cfg.get_value("carrera", "logros", {})
+	outfit = clampi(cfg.get_value("aspecto", "ropa", 0), 0, 1)
+	style_id = str(cfg.get_value("aspecto", "estilo", "custom"))
+	if not STYLES.any(func(s): return s["id"] == style_id):
+		style_id = "custom"
 	var saved: Dictionary = cfg.get_value("aspecto", "look", {})
 	for k in saved:
 		if look.has(k):
@@ -225,4 +249,33 @@ func _save() -> void:
 	cfg.set_value("carrera", "desafios", challenges_done)
 	cfg.set_value("carrera", "logros", achievements)
 	cfg.set_value("aspecto", "look", look)
-	cfg.save(PATH)
+	cfg.set_value("aspecto", "ropa", outfit)
+	cfg.set_value("aspecto", "estilo", style_id)
+	cfg.save(config_path())
+
+func set_outfit(index: int) -> void:
+	style_id = "custom"
+	outfit = clampi(index, 0, 1)
+	_save()
+	changed.emit()
+
+
+func set_style(index: int) -> void:
+	var choice: Dictionary = STYLES[clampi(index, 0, STYLES.size() - 1)]
+	style_id = choice["id"]
+	if style_id != "custom":
+		outfit = choice["outfit"]
+		look = choice["look"].duplicate()
+	_save()
+	changed.emit()
+
+func style_index() -> int:
+	for i in STYLES.size():
+		if STYLES[i]["id"] == style_id:
+			return i
+	return 0
+
+
+func config_path() -> String:
+	var args := OS.get_cmdline_user_args()
+	return "user://styles-test.cfg" if "--qa" in args and "--styles-test" in args else PATH

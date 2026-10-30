@@ -248,7 +248,7 @@ func update_state(surfer: Surfer, wave: WaveModel, score: ScoreKeeper, delta: fl
 		var gap := surfer.global_position.z - wave.crest_z
 		_sub.text = "OLA A %d m" % int(gap) if gap > 0.0 and wave.amp > 0.3 else "ESPERANDO OLA"
 	elif surfer.is_riding():
-		_sub.text = "DE PIE %.1f s" % surfer.ride_time
+		_sub.text = "TUBO %.1f s · BUSCA LA SALIDA" % surfer.tube_seconds if surfer.in_tube else "DE PIE %.1f s · TUBOS %d" % [surfer.ride_time, surfer.tube_exits]
 	else:
 		_sub.text = ""
 
@@ -318,3 +318,8 @@ func _draw() -> void:
 	for item in [[Vector2(r.position.x - 62, c.y + 7), "COLA"], [Vector2(r.end.x + 12, c.y + 7), "PUNTA"]]:
 		draw_string_outline(f, item[0], item[1], HORIZONTAL_ALIGNMENT_LEFT, -1, 19, 6, Color(UiKit.NIGHT, 0.85))
 		draw_string(f, item[0], item[1], HORIZONTAL_ALIGNMENT_LEFT, -1, 19, UiKit.SAND)
+
+
+func reset_ride_feedback() -> void:
+	for child in _popups.get_children():
+		child.queue_free()

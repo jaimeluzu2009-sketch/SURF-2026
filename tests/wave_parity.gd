@@ -15,6 +15,7 @@ const CENTERS_X := [-4.0, -14.0, 4.0]
 const TOLERANCE := 0.12
 
 var wave := WaveModel.new()
+var condition := -1
 var water: Water
 var vp: SubViewport
 var cam: Camera3D
@@ -27,6 +28,12 @@ func _ready() -> void:
 			Ajustes.set_quality(int(a.get_slice("=", 1)))
 		elif a.begins_with("--spot="):
 			Spots.apply_to_wave(Spots.get_spot(int(a.get_slice("=", 1))), wave)
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--condition="):
+			condition = clampi(int(a.get_slice("=", 1)), 0, 2)
+	if condition >= 0:
+		wave.tide = SurfSession.PRESETS[condition]["tide"]
+		wave.height *= SurfSession.PRESETS[condition]["height"]
 	vp = SubViewport.new()
 	vp.size = Vector2i(W, H)
 	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS

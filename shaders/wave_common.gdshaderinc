@@ -1,6 +1,7 @@
 // Forma de la ola. Copia exacta de WaveModel.height_at() (scripts/wave_model.gd).
 // El script rellena estos uniforms cada fotograma.
 
+uniform float tide = 0.0;
 uniform float wave_time;
 uniform float crest_z;
 uniform float peel_x;
@@ -48,7 +49,7 @@ float wave_height_terms(float x, float z, out vec4 terms) {
 	float u2 = u + 2.0 * set_spacing;
 	float w2 = u2 > 0.0 ? front_width : back_width;
 	h += set_amp2 * sl * exp(-(u2 * u2) / (w2 * w2));
-	return h + swell_at(x, z);
+	return tide + h + swell_at(x, z);
 }
 
 float wave_height(float x, float z) {
