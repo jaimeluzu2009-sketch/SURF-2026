@@ -60,6 +60,7 @@ func _ready() -> void:
 	cam.surfer = surfer
 	cam.lineup = lineup
 	surfer.maneuver_completed.connect(score.award_maneuver)
+	surfer.maneuver_failed.connect(score.break_chain)
 	surfer.ride_ended.connect(_on_ride_ended)
 	surfer.hint.connect(func(t): hud.show_hint(t))
 	score.event.connect(func(t, p): hud.popup(t, p))
@@ -69,6 +70,10 @@ func _ready() -> void:
 	menus.resume_requested.connect(resume)
 	menus.menu_requested.connect(to_menu)
 	menus.customize_preview.connect(_on_customize_preview)
+	menus.customize_view.connect(func(i):
+		surfer.showcase_board=i==1
+		cam.showcase_view=i
+		cam.snap_now())
 	Fx.setup_spray(lip_spray, 28, 0.45, 0.04, 0.13)
 	lip_spray.direction = Vector3(0, 1, 0.8)
 	lip_spray.spread = 30.0
@@ -94,6 +99,10 @@ func _ready() -> void:
 		bot.name = "Bot"
 		bot.setup(self, args)
 		add_child(bot)
+	elif "--custom-test" in args:
+		add_child(load("res://tests/custom_test.gd").new())
+	elif "--tricks-test" in args:
+		add_child(load("res://tests/tricks_test.gd").new())
 	elif "--wake-test" in args:
 		add_child(load("res://tests/wake_test.gd").new())
 	elif "--turns-test" in args:
@@ -188,6 +197,10 @@ func start_play() -> void:
 func pause() -> void:
 	if mode != Mode.PLAY:
 		return
+	surfer.tricks.cancel_input()
+	touch.active=false
+	touch._release_all()
+	touch.hide()
 	mode = Mode.PAUSE
 	Controles.paddle_latched = false
 	get_tree().paused = true
@@ -216,6 +229,7 @@ func _on_play_requested(i: int) -> void:
 
 func _on_customize_preview(on: bool) -> void:
 	surfer.set_showcase(on)
+	cam.showcase_view=0
 	cam.mode = CameraRig.Mode.SHOWCASE if on else (CameraRig.Mode.CINEMATIC if mode == Mode.MENU else cam.mode)
 
 
@@ -251,6 +265,7 @@ func _physics_process(delta: float) -> void:
 		if wave.crest_z > 55.0:
 			wave.reset()
 		return
+	if mode==Mode.PLAY: score.tick(delta)
 	if surfer.state == Surfer.State.PRONE and _missed_timer < 0.0 \
 			and wave.crest_z > surfer.global_position.z + 10.0:
 		_missed_timer = 2.5
@@ -265,8 +280,8 @@ func _physics_process(delta: float) -> void:
 			hud.show_hint("Nueva ola en camino. Colócate y rema cuando se acerque.", 4.0)
 	if surfer.state == Surfer.State.RIDING:
 		var ahead := (surfer.global_position.x - wave.peel_x) * wave.peel_dir
-		score.step(delta, surfer.speed(), surfer.carve, ahead if wave.started > 0.5 else 99.0, false)
-		score.tube_step(delta, surfer.in_tube)
+		score.step(delta, surfer.speed(), surfer.carve, ahead if wave.started > 0.5 else 99.0, false, false)
+		score.tube_step(delta, surfer.in_tube,clampf((6.8-ahead)/6.8,0.0,1.0))
 		if wave.crest_z > FINISH_Z:
 			surfer.finish_success()
 			score.finish_bonus()
@@ -286,9 +301,15 @@ func _process(delta: float) -> void:
 		surfer.wake_points(),surfer.wake_loads(),Vector2(surfer.forward().x,surfer.forward().z),surfer.rail_load)
 	_update_lip_spray(t)
 	hud.update_state(surfer, wave, score, delta)
+	Controles.riding_context=surfer.state in [Surfer.State.RIDING,Surfer.State.AIRBORNE,Surfer.State.FLOATER]
+	touch.set_riding_context(Controles.riding_context)
 	touch.stand_ready = surfer.can_stand and surfer.state == Surfer.State.PRONE
 	touch.active = mode == Mode.PLAY
 	touch.visible = Ajustes.touch_enabled() and mode == Mode.PLAY
+	touch.impulse_charge=surfer.tricks.charge
+	var sample: Dictionary = surfer.last_sample
+	touch.trick_ready=surfer.in_tube or surfer.state in [Surfer.State.AIRBORNE,Surfer.State.FLOATER] or (surfer.state==Surfer.State.RIDING and surfer.speed()>=4.5 and float(sample.get("profile",0))>0.5 and absf(float(sample.get("u",99)))<float(sample.get("face_width",1))*.58)
+	hud.set_hint_lane(touch.hint_lane())
 	if mode == Mode.PLAY and Input.is_action_just_pressed("surf_restart"):
 		restart()
 	if mode == Mode.PLAY and Controles.capture_action == "" and Input.is_action_just_pressed("toggle_fps"):
@@ -308,6 +329,7 @@ func _update_lip_spray(t: float) -> void:
 
 func _on_ride_ended(success: bool, title: String, detail: String) -> void:
 	var stats := {
+		"tricks": score.trick_counts.duplicate(),
 		"success": success,
 		"score": score.score,
 		"time": surfer.ride_time,

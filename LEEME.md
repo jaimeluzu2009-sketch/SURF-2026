@@ -235,3 +235,26 @@ Prueba de integración: `godot --headless --path . -- --qa --styles-test`. Verif
 - El shader calcula la estela dentro de su rectángulo local, con segmentos finitos y extremos atenuados. No requiere pantallas auxiliares, texturas externas ni mallas adicionales para la espuma superficial.
 - Capturas comparativas: capturas/estela/antes y despues. Pruebas: --qa --wake-test; capturas de maniobras reales: --qa --turns-test --wake-shots. Informe: VALIDACION_ESTELA.md.
 - No se generó APK, AAB ni exportación web. Estos cambios requieren una futura exportación autorizada para llegar a los paquetes existentes.
+
+
+## Trucos (cambios locales, octubre de 2026)
+
+Bombeo rítmico, snap, floater junto a la rotura, aéreos con agarre/180°,
+recepción en switch, acciones del tubo y Flujo. Los mismos botones cambian
+entre REMAR/IMPULSO y PARARSE/TRUCO; conservan reasignaciones y mando.
+Consulta `VALIDACION_TRUCOS.md` para controles, pruebas y limitaciones.
+No están incluidos todavía en el APK publicado 1.2.0.
+
+
+## Menú de personalización corregido
+
+Apariencia, ropa y tabla tienen pestañas y botones directos. Cambiar ropa conserva
+el estilo; hay cuatro tonos de piel, cuatro colores de cabello y vista del fondo
+de la tabla. Se guardan las selecciones. Consulta `VALIDACION_PERSONALIZACION.md`
+para archivos, capturas y comprobaciones. Cambios locales, sin APK nuevo.
+
+
+## Entrega Android 1.3.0
+
+Los trucos y la personalización corregida se incluyen en el APK 1.3.0.
+Ver `VALIDACION_1_3.md` para firma, checksum y pruebas; `CLAUDE.md` para continuidad.

@@ -9,6 +9,10 @@ const NONE := -100
 
 var active := true
 var stand_ready := false
+var riding := false
+var impulse_charge := 0.0
+var trick_ready := false
+var _stand_id := NONE
 
 var _stick_id := NONE
 var _stick_center := Vector2.ZERO
@@ -60,9 +64,23 @@ func _in_stick_zone(pos: Vector2) -> bool:
 	return (left != Ajustes.left_handed) and pos.y > size.y * 0.25
 
 
+func set_riding_context(on: bool) -> void:
+	if riding==on: return
+	_release_all()
+	riding=on
+
+func hint_lane() -> Vector2:
+	if not visible or not active: return Vector2.ZERO
+	if Ajustes.left_handed:
+		return Vector2(maxf(_stand_c.x+_r,_paddle_c.x+_r*1.2)+18,_rest_c.x-_r-18)
+	return Vector2(_rest_c.x+_r+18,minf(_stand_c.x-_r,_paddle_c.x-_r*1.2)-18)
+
 func _release_all() -> void:
 	_stick_id = NONE
 	_paddle_id = NONE
+	_stand_id = NONE
+	Controles.touch_trick = false
+	Controles._touch_stand = false
 	Controles.touch_stick = Vector2.ZERO
 	Controles.touch_paddle = false
 
@@ -106,10 +124,12 @@ func _input(event: InputEvent) -> void:
 		if pos.distance_to(_paddle_c) < _r * 1.2:
 			_paddle_id = id
 			Controles.touch_paddle = true
-			if Ajustes.paddle_toggle:
+			if Ajustes.paddle_toggle and not riding:
 				Controles.toggle_touch_paddle()
 		elif pos.distance_to(_stand_c) < _r * 1.0:
-			Controles.press_touch_stand()
+			_stand_id = id
+			Controles.touch_trick = riding
+			if not riding: Controles.press_touch_stand()
 			_stand_flash = 0.25
 		elif _in_stick_zone(pos) and _stick_id == NONE:
 			_stick_id = id
@@ -120,6 +140,9 @@ func _input(event: InputEvent) -> void:
 		if id == _paddle_id:
 			_paddle_id = NONE
 			Controles.touch_paddle = false
+		if id == _stand_id:
+			_stand_id = NONE
+			Controles.touch_trick = false
 		if id == _stick_id:
 			_stick_id = NONE
 			Controles.touch_stick = Vector2.ZERO
@@ -157,19 +180,22 @@ func _draw() -> void:
 	var knob := c + Vector2(Controles.touch_stick.x, -Controles.touch_stick.y) * _r
 	draw_circle(knob, _r * 0.42, Color(UiKit.SAND, 0.6 if _stick_id != NONE else 0.32))
 	# REMAR
-	var paddle_on := _paddle_id != NONE or (Ajustes.paddle_toggle and Controles.paddle_latched)
+	var paddle_on := _paddle_id != NONE or (not riding and Ajustes.paddle_toggle and Controles.paddle_latched)
 	draw_circle(_paddle_c, _r, Color(UiKit.TURQUOISE, 0.8 if paddle_on else 0.45))
 	draw_arc(_paddle_c, _r, 0, TAU, 48, white, 3.0, true)
-	_label(font, _paddle_c, "REMAR", _r)
+	_label(font, _paddle_c, "IMPULSO" if riding else "REMAR", _r)
+	if riding and impulse_charge>0.0:
+		draw_arc(_paddle_c,_r+7,-PI*.5,-PI*.5+TAU*impulse_charge,32,UiKit.CORAL,5,true)
 	# PARARSE (late cuando se puede)
-	var pulse := 0.5 + 0.5 * sin(_time * 10.0) if stand_ready else 0.0
-	var col := Color(UiKit.CORAL, 0.6 + 0.35 * pulse) if stand_ready else Color(UiKit.NIGHT, 0.45)
-	if _stand_flash > 0.0:
+	var ready_now := stand_ready or (riding and trick_ready)
+	var pulse := (0.5 if Ajustes.reduce_motion else 0.5+0.5*sin(_time*10.0)) if ready_now else 0.0
+	var col := Color(UiKit.CORAL, 0.6 + 0.35 * pulse) if ready_now else Color(UiKit.NIGHT, 0.45)
+	if _stand_flash > 0.0 or _stand_id != NONE:
 		col = Color(1, 1, 1, 0.8)
 	var rs := _r * (0.9 + 0.08 * pulse)
 	draw_circle(_stand_c, rs, col)
 	draw_arc(_stand_c, rs, 0, TAU, 48, white, 3.0, true)
-	_label(font, _stand_c, "PARARSE", _r)
+	_label(font, _stand_c, "TRUCO" if riding else "PARARSE", _r)
 
 
 func _label(font: Font, center: Vector2, text: String, r: float) -> void:

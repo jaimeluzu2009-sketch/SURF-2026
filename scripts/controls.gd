@@ -32,6 +32,10 @@ signal binding_message(text: String)
 var capture_action := ""
 var touch_stick := Vector2.ZERO
 var touch_paddle := false
+var touch_trick := false
+var riding_context := false
+var bot_impulse := false
+var bot_trick := false
 var _touch_stand := false
 
 ## Para las pruebas automáticas (tests/bot.gd).
@@ -106,13 +110,22 @@ func _input(event: InputEvent) -> void:
 				else:
 					binding_message.emit(message + " Esc cancela.")
 		return
-	if not get_tree().paused and Ajustes.paddle_toggle and event.is_action_pressed("surf_paddle"):
+	if not get_tree().paused and not riding_context and Ajustes.paddle_toggle and event.is_action_pressed("surf_paddle"):
 		paddle_latched = not paddle_latched
 
 
 func toggle_touch_paddle() -> void:
 	paddle_latched = not paddle_latched
 
+
+## Sin enclavamiento: cargar/soltar debe conservar sus flancos aun con remar alternable.
+func impulse_held() -> bool:
+	if bot_enabled: return bot_impulse
+	return capture_action=="" and (Input.is_action_pressed("surf_paddle") or touch_paddle)
+
+func trick_held() -> bool:
+	if bot_enabled: return bot_trick
+	return capture_action=="" and (Input.is_action_pressed("surf_stand") or touch_trick)
 
 func paddling() -> bool:
 	if bot_enabled:
@@ -142,8 +155,8 @@ func bot_stand() -> void:
 
 
 const ACTION_NAMES := {"surf_left": "Girar a la izquierda", "surf_right": "Girar a la derecha",
-	"surf_up": "Peso adelante / remar", "surf_down": "Peso atrás", "surf_paddle": "Remar",
-	"surf_stand": "Ponerse de pie", "surf_pause": "Pausa", "surf_restart": "Reiniciar ola", "toggle_fps": "Mostrar FPS"}
+	"surf_up": "Peso adelante / remar", "surf_down": "Peso atrás", "surf_paddle": "Remar / cargar impulso",
+	"surf_stand": "Ponerse de pie / truco", "surf_pause": "Pausa", "surf_restart": "Reiniciar ola", "toggle_fps": "Mostrar FPS"}
 
 func filter_stick(raw: Vector2) -> Vector2:
 	var radius := minf(raw.length(), 1.0)
@@ -255,6 +268,8 @@ func reset_controls() -> void:
 	Ajustes.paddle_toggle = false
 	paddle_latched = false
 	touch_paddle = false
+	touch_trick = false
+	_touch_stand = false
 	touch_stick = Vector2.ZERO
 	apply_bindings()
 	Ajustes.apply()

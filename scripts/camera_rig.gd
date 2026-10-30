@@ -6,6 +6,7 @@ extends Camera3D
 ## hacia la orilla, para ver la cara de la ola sin que la tape la espuma.
 
 enum Mode { FOLLOW, CINEMATIC, SHOWCASE }
+var showcase_view := 0
 
 @export var surfer: Surfer
 @export var follow_speed := 3.0
@@ -48,7 +49,7 @@ func _menu_camera(delta: float) -> void:
 		# de la pantalla (la izquierda es para el panel de personalización).
 		var to_cam := (pos - p).normalized()
 		var screen_left := Vector3.UP.cross(-to_cam).normalized()
-		look = p + Vector3(0, 0.85, 0) + screen_left * 1.6
+		look = p + Vector3(0,0.10 if showcase_view==1 else 0.85,0) + screen_left * 1.6
 	pos.y = maxf(pos.y, wave.height_at(pos.x, pos.z) + 1.0)
 	if _ready_once:
 		var k := 1.0 - exp(-2.5 * delta)
@@ -106,7 +107,7 @@ func _process(delta: float) -> void:
 	var shore := 1.5
 	var height := 2.0
 	var look_off := Vector3(0.0, 0.55, -1.5)
-	var riding := surfer.state in [Surfer.State.POPUP, Surfer.State.RIDING, Surfer.State.DONE]
+	var riding := surfer.state in [Surfer.State.POPUP, Surfer.State.RIDING, Surfer.State.DONE, Surfer.State.AIRBORNE, Surfer.State.FLOATER]
 	if riding:
 		if travel.length() > 2.0 and not Ajustes.reduce_motion:
 			want = travel.normalized().lerp(line, 0.35).normalized().rotated(Vector3.UP, -clampf(surfer.rail_load,-1.0,1.0) * 0.08)

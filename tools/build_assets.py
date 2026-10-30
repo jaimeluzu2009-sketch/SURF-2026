@@ -790,6 +790,19 @@ def build_actions(arm):
 		"hand_R": ("w", V(-0.2, -0.3, -0.93))})
 	make("popup", [(0, push), (6, cobra), (13, crouch), (21, stance())], False)
 
+	# Original IK poses for physical tricks; the deck and feet move together.
+	air = stance(hips=V(.05,.01,.61),lean=25,head_yaw=28)
+	grab = stance(hips=V(.02,.01,.44),lean=54,head_yaw=22,arms={
+		"upper_arm_L":("ik",V(-.20,-.13,.205),V(-1,-.3,.6)),
+		"hand_L":("w",V(0,0,-1))})
+	drag = stance(hips=V(-.04,.01,.40),lean=56,head_yaw=26,arms={
+		"upper_arm_L":("ik",V(-.39,-.13,.12),V(-1,-.3,.4)),
+		"hand_L":("w",V(-.5,0,-.85))})
+	for name, pose in [("air",air),("grab",grab),("floater",stance(hips=V(.04,.01,.68),lean=24)),("tube_rail",grab),("hand_drag",drag)]:
+		make(name,[(0,pose),(30,pose)],True)
+	make("snap",[(0,stance()),(5,stance(hips=V(.04,.01,.64),lean=35,twist=20)),(10,stance())],False)
+	make("landing",[(0,stance(hips=V(.04,.01,.60),lean=27)),(10,stance())],False)
+
 	# Caída al agua por el lado de los talones.
 	f1 = stance(hips=V(0.14, 0.0, 0.76), lean=-24, arms={
 		"upper_arm_L": ("d", V(0.7, 0.0, 0.7)), "forearm_L": ("d", V(0.5, -0.3, 0.8)),

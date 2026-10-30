@@ -33,6 +33,9 @@ var _fps_frames := 0
 var _fps_text := ""
 var _last_combo := 1
 var _playing := false
+var _flow := 0.0
+var _charge := 0.0
+var _trick_text := ""
 
 
 func _ready() -> void:
@@ -89,6 +92,8 @@ func _ready() -> void:
 	sp.add_child(_speed_unit)
 	rv.add_child(sp)
 	_sub = UiKit.label("", 17, UiKit.TEXT_DIM, UiKit.font_title())
+	_sub.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	_sub.custom_minimum_size.x=210
 	_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	rv.add_child(_sub)
 	_top_right.add_child(rv)
@@ -97,7 +102,7 @@ func _ready() -> void:
 	# Desafíos del spot (a la derecha).
 	var chp := UiKit.panel(Color(UiKit.NIGHT, 0.5), 12, Color(0, 0, 0, 0), 12)
 	chp.name = "ChallengesPanel"
-	_place(chp, 1.0, 1.0, -300, 176, -18, 330)
+	_place(chp, 1.0, 1.0, -300, 200, -18, 354)
 	_challenges = VBoxContainer.new()
 	_challenges.add_theme_constant_override("separation", 6)
 	chp.add_child(_challenges)
@@ -166,6 +171,16 @@ func _apply_contrast() -> void:
 		(p as PanelContainer).add_theme_stylebox_override("panel", sb)
 
 
+func set_hint_lane(lane: Vector2) -> void:
+	var mobile := lane.y>lane.x
+	var left := lane.x if mobile else size.x*.5-360.0
+	var right := lane.y if mobile else size.x*.5+360.0
+	_hint_panel.anchor_left=0.0
+	_hint_panel.anchor_right=0.0
+	_hint_panel.offset_left=left
+	_hint_panel.offset_right=right
+	_hint.add_theme_font_size_override("font_size",18 if mobile else 21)
+
 func set_playing(on: bool) -> void:
 	_playing = on
 	visible = on
@@ -212,14 +227,14 @@ func popup(text: String, points: int) -> void:
 	var l := UiKit.headline(text + ("  +%s" % UiKit.num(points) if points > 0 else ""), 34,
 		UiKit.GOLD if points >= 1000 else UiKit.SAND)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.position = Vector2(-300, 0)
+	l.position = Vector2(-300, mini(_popups.get_child_count(),2)*42.0)
 	l.size = Vector2(600, 50)
 	_popups.add_child(l)
 	if Ajustes.reduce_motion:
 		get_tree().create_timer(1.2).timeout.connect(l.queue_free)
 		return
 	var tw := l.create_tween().set_parallel(true)
-	tw.tween_property(l, "position:y", -70.0, 1.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.tween_property(l, "position:y", l.position.y-70.0, 1.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	tw.tween_property(l, "modulate:a", 0.0, 0.5).set_delay(0.8)
 	tw.chain().tween_callback(l.queue_free)
 
@@ -230,8 +245,11 @@ func update_state(surfer: Surfer, wave: WaveModel, score: ScoreKeeper, delta: fl
 	_hint_panel.visible = _hint_time > 0.0 and Ajustes.show_hints
 	_prompt.visible = surfer.can_stand and surfer.state == Surfer.State.PRONE
 	_prompt.modulate.a = 0.65 + 0.35 * sin(_time * 12.0)
-	_show_balance = surfer.state == Surfer.State.RIDING
-	_balance = surfer.balance
+	_flow=score.flow
+	_charge=surfer.tricks.charge
+	_trick_text=surfer.tricks.status()
+	_show_balance = surfer.state in [Surfer.State.RIDING,Surfer.State.AIRBORNE,Surfer.State.FLOATER]
+	_balance = surfer.tricks.air_pitch/0.34 if surfer.state==Surfer.State.AIRBORNE else surfer.balance
 
 	_score.text = UiKit.num(score.score)
 	_combo.visible = score.combo > 1
@@ -252,6 +270,8 @@ func update_state(surfer: Surfer, wave: WaveModel, score: ScoreKeeper, delta: fl
 	else:
 		_sub.text = ""
 
+	if _trick_text!="": _sub.text=_trick_text
+
 	for r in _ch_rows:
 		var ch: Dictionary = r["ch"]
 		var done_before := Perfil.challenge_is_done(_spot["id"], ch["id"])
@@ -262,11 +282,13 @@ func update_state(surfer: Surfer, wave: WaveModel, score: ScoreKeeper, delta: fl
 			"combo":
 				p = score.best_combo / float(ch["value"])
 			"speed":
-				p = score.top_speed * 3.6 / float(ch["value"])
+				p = surfer.top_speed * 3.6 / float(ch["value"])
 			"distance":
-				p = score.distance / float(ch["value"])
+				p = surfer.ride_distance / float(ch["value"])
 			"pocket":
 				p = score.pocket_time / float(ch["value"])
+			"trick":
+				p=score.trick_count(ch["kind"])/float(ch["value"])
 			"complete":
 				p = clampf((wave.crest_z + 37.0) / (Game.FINISH_Z + 37.0), 0.0, 1.0) if surfer.is_riding() else 0.0
 		p = clampf(p, 0.0, 1.0)
@@ -295,6 +317,15 @@ func update_state(surfer: Surfer, wave: WaveModel, score: ScoreKeeper, delta: fl
 func _draw() -> void:
 	if not _show_balance:
 		return
+	var fw := minf(size.x*0.18,180.0)
+	var fc := Vector2(18+fw*.5,124)
+	draw_rect(Rect2(fc-Vector2(fw*0.5,0),Vector2(fw,7)),Color(UiKit.NIGHT,.85))
+	draw_rect(Rect2(fc-Vector2(fw*0.5,0),Vector2(fw*_flow,7)),UiKit.TURQUOISE)
+	var font := UiKit.font_display()
+	var text := "FLUJO %d%%" % int(_flow*100.0)
+	draw_string(font,fc+Vector2(-font.get_string_size(text,HORIZONTAL_ALIGNMENT_LEFT,-1,16).x*.5,-5),text,HORIZONTAL_ALIGNMENT_LEFT,-1,16,UiKit.SAND)
+	if _charge>0.0:
+		draw_arc(Vector2(size.x*.5,size.y-210),26,-PI*.5,-PI*.5+TAU*_charge,32,UiKit.CORAL,5,true)
 	var w := minf(size.x * 0.42, 460.0)
 	var h := 14.0
 	var c := Vector2(size.x * 0.5, size.y - 54.0)

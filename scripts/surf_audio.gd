@@ -45,6 +45,10 @@ func sync(delta: float, surfer: Surfer, playing: bool) -> void:
 	sea.pitch_scale = lerpf(1.0, 0.85, _mix)
 	_filter.cutoff_hz = lerpf(16000.0, 1100.0, _mix)
 	glide.volume_db = lerpf(-50.0, -19.0, clampf(surfer.speed() / 8.0, 0.0, 1.0)) - (0.0 if playing else 14.0)
+	if surfer.state==Surfer.State.AIRBORNE: glide.volume_db-=24.0
+	if surfer.state==Surfer.State.RIDING and _last_state==Surfer.State.AIRBORNE:
+		fall.volume_db=-19.0
+		fall.play()
 	glide.pitch_scale = 0.9 + absf(surfer.carve) * 0.5
 	if not playing:
 		return
@@ -54,7 +58,7 @@ func sync(delta: float, surfer: Surfer, playing: bool) -> void:
 		_stroke = 0.72
 		paddle.volume_db = -12.0
 		paddle.play()
-	if float(surfer.last_sample.get("broken", 0.0)) > 0.3 and _wash_timer <= 0.0:
+	if surfer.touching_water() and float(surfer.last_sample.get("broken", 0.0)) > 0.3 and _wash_timer <= 0.0:
 		_wash_timer = 2.5
 		wash.volume_db = -15.0 + _mix * 5.0
 		wash.play()

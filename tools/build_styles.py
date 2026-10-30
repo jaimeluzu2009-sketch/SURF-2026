@@ -1,5 +1,5 @@
 # blender -b --factory-startup --python tools/build_styles.py -- assets/models
-# Original procedural assets. Shares build_assets.py rig, weights and all 9 clips.
+# Original procedural assets. Shares build_assets.py rig, weights and all clips, including surf tricks.
 from pathlib import Path
 ns={"__file__":str(Path(__file__).with_name("build_assets.py"))}
 src=Path(ns["__file__"]).read_text(encoding="utf-8")
@@ -26,7 +26,8 @@ def make_hair(kind, mat):
   parts.append(ob)
  return parts
 
-def build_variant(kind, sid):
+def build_variant(kind, sid, outfit=None):
+ summer=(kind!=1) if outfit is None else outfit==1
  clear_scene()
  bpy.context.scene.render.fps=FPS
  # Common names are used by SurfMaterials and the existing customization slots.
@@ -54,7 +55,7 @@ def build_variant(kind, sid):
  # Full wetsuit uses coral shoulder panels; summer variants expose their legs.
  for face in body.data.polygons:
   c=face.center;ax=abs(c.x)
-  if kind==1:
+  if not summer:
    if face.material_index==2: face.material_index=0
    if 1.34<c.z<1.49 and .10<ax<.37: face.material_index=2
    elif .16<ax<.195 and .72<c.z<1.31: face.material_index=6
@@ -65,7 +66,7 @@ def build_variant(kind, sid):
     if kind==2 and .62<c.z<.69+(.02 if int(ax*65)%2 else 0): face.material_index=7
    elif face.material_index in [0,2,3]: face.material_index=4
  for v in body.data.vertices:
-  if kind!=1 and .61999<v.co.z<1.02001 and abs(v.co.x)<.28:
+  if summer and .61999<v.co.z<1.02001 and abs(v.co.x)<.28:
    v.co.x*=1.04;v.co.y*=1.10
  skin_weights(body,arm)
  head=build_head(mats)
@@ -94,9 +95,10 @@ def build_variant(kind, sid):
   elif kind==0 and c.y<-.68: face.material_index=ni
   elif kind==2 and abs(c.x)<.009: face.material_index=ni
  os.makedirs(OUT_DIR,exist_ok=True)
- export_glb([arm,surfer],os.path.join(OUT_DIR,'surfer_'+sid+'.glb'),True)
- export_glb([board],os.path.join(OUT_DIR,'board_'+sid+'.glb'),False)
+ suffix='' if outfit is None else ('_beach' if summer else '_wetsuit')
+ export_glb([arm,surfer],os.path.join(OUT_DIR,'surfer_'+sid+suffix+'.glb'),True)
+ if outfit is None: export_glb([board],os.path.join(OUT_DIR,'board_'+sid+'.glb'),False)
  print('[styles]',sid,'triangles',sum(len(f.vertices)-2 for f in surfer.data.polygons),'bones',len(arm.data.bones))
 
 for i,sid in enumerate(['local','pro','retro']):
- build_variant(i,sid)
+ build_variant(i,sid,1 if i==1 else 0) if "--outfit-variants" in sys.argv else build_variant(i,sid)

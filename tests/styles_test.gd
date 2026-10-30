@@ -61,6 +61,7 @@ func run() -> void:
 	check(s.visual.global_transform == before_preview, "flotación de personalización no actúa durante el gameplay")
 	game.wave.time = saved_time
 	game.wave.update()
+	Perfil.set_style(0) # Clothing now preserves identity; choose the original explicitly.
 	Perfil.set_outfit(0)
 	check(Perfil.style_id == "custom" and body.mesh == s._winter_mesh, "vuelve al neopreno original")
 	Perfil.set_outfit(1)

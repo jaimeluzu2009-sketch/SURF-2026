@@ -37,7 +37,17 @@ const BOTTOMS := [
 	{"id": "pacifico", "name": "Azul Pacífico", "color": Color(0.08, 0.28, 0.55), "level": 3},
 	{"id": "atardecer", "name": "Atardecer", "color": Color(0.98, 0.62, 0.22), "level": 6},
 ]
-const SLOTS := {"wetsuit": WETSUITS, "accent": ACCENTS, "deck": DECKS, "bottom": BOTTOMS}
+const SKINS := [
+	{"id":"calida","name":"Cálida","color":Color(.72,.50,.36),"level":1},
+	{"id":"clara","name":"Clara","color":Color(.91,.72,.57),"level":1},
+	{"id":"morena","name":"Morena","color":Color(.51,.31,.20),"level":1},
+	{"id":"oscura","name":"Oscura","color":Color(.30,.17,.11),"level":1}]
+const HAIRS := [
+	{"id":"castano","name":"Castaño","color":Color(.10,.07,.05),"level":1},
+	{"id":"negro","name":"Negro","color":Color(.025,.023,.021),"level":1},
+	{"id":"arena","name":"Arena","color":Color(.49,.33,.14),"level":1},
+	{"id":"cobrizo","name":"Cobrizo","color":Color(.35,.13,.06),"level":1}]
+const SLOTS := {"skin":SKINS,"hair":HAIRS,"wetsuit": WETSUITS, "accent": ACCENTS, "deck": DECKS, "bottom": BOTTOMS}
 
 const ACHIEVEMENTS := [
 	{"id": "barrel", "name": "BARRELS", "desc": "Sal de un tubo tras pasar al menos 0,6 s dentro."},
@@ -68,7 +78,7 @@ const STYLES := [
 ]
 var style_id := "custom"
 var outfit := 0
-var look := {"wetsuit": "negro", "accent": "amarillo", "deck": "blanco", "bottom": "turquesa"}
+var look := {"wetsuit": "negro", "accent": "amarillo", "deck": "blanco", "bottom": "turquesa", "skin":"calida", "hair":"castano"}
 
 
 func _ready() -> void:
@@ -133,6 +143,10 @@ static func challenge_met(ch: Dictionary, stats: Dictionary) -> bool:
 	match ch["type"]:
 		"complete":
 			return stats["success"]
+		"trick":
+			var sc := ScoreKeeper.new()
+			sc.trick_counts=stats.get("tricks",{}).duplicate()
+			return sc.trick_count(ch["kind"])>=int(ch["value"])
 		"score":
 			return stats["score"] >= ch["value"]
 		"combo":
@@ -254,7 +268,6 @@ func _save() -> void:
 	cfg.save(config_path())
 
 func set_outfit(index: int) -> void:
-	style_id = "custom"
 	outfit = clampi(index, 0, 1)
 	_save()
 	changed.emit()
@@ -265,7 +278,7 @@ func set_style(index: int) -> void:
 	style_id = choice["id"]
 	if style_id != "custom":
 		outfit = choice["outfit"]
-		look = choice["look"].duplicate()
+		look.merge(choice["look"],true)
 	_save()
 	changed.emit()
 
@@ -278,4 +291,5 @@ func style_index() -> int:
 
 func config_path() -> String:
 	var args := OS.get_cmdline_user_args()
+	if "--qa" in args and "--custom-test" in args: return "user://custom-test.cfg"
 	return "user://styles-test.cfg" if "--qa" in args and "--styles-test" in args else PATH

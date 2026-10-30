@@ -3,14 +3,18 @@
 Juego 3D de surf en Godot 4.7.2, renderizador Compatibilidad, para Android y navegador. Spots: Montañita, La Rinconada y La FAE.
 
 ## Descargar Android
-[BARRELS 1.2.0 — APK](https://github.com/jaimeluzu2009-sketch/SURF-2026/releases/download/v1.2.0/barrels-1.2.0.apk) · [Release y checksum](https://github.com/jaimeluzu2009-sketch/SURF-2026/releases/tag/v1.2.0)
+[BARRELS 1.3.0 — APK](https://github.com/jaimeluzu2009-sketch/SURF-2026/releases/download/v1.3.0/barrels-1.3.0.apk) · [Release y checksum](https://github.com/jaimeluzu2009-sketch/SURF-2026/releases/tag/v1.3.0)
 
 Android 7+ y OpenGL ES 3.0. APK firmado; todavía pendiente de validación en un teléfono físico.
 
 ## Abrir el proyecto
 Abre `project.godot` con Godot 4.7.2 y conserva Compatibilidad. Espera la importación de GLB, fuentes y audio y ejecuta la escena principal. El código actualizado está en `main`.
 
-Incluye tres apariencias, animaciones, cámara ajustable, controles de teclado/táctil/mando, ola y tubo, bottom turn/carving/cutback con puntuación y combos, estela y gotas según carga del canto, personalización y progresión.
+Incluye tres apariencias y modo personalizado con ropa combinable, piel y cabello, aéreos/180°, bombeo, snap/floater, Flujo, animaciones, cámara ajustable, controles de teclado/táctil/mando, ola y tubo, bottom turn/carving/cutback con puntuación y combos, estela y gotas según carga del canto, personalización y progresión.
+
+## Continuidad
+
+Para continuar el desarrollo con Claude, lee [CLAUDE.md](CLAUDE.md). Estado y firma de esta entrega en [VALIDACION_1_3.md](VALIDACION_1_3.md).
 
 ## Validación
 Consulta [LEEME.md](LEEME.md) y los archivos `VALIDACION_*.md`. Las pruebas están en `tests/`; sus capturas se generan localmente en `capturas/` y no se incluyen en Git.

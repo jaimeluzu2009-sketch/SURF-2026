@@ -3,7 +3,7 @@ extends Node
 ## Crea el AnimationTree del surfista:
 ## tumbado / remar / ponerse de pie / surfear (BlendSpace2D: giro × peso) / caer.
 
-const LOOPS := ["prone_idle", "paddle", "ride", "carve_left", "carve_right", "lean_fwd", "lean_back", "tube_crouch"]
+const LOOPS := ["prone_idle", "paddle", "ride", "carve_left", "carve_right", "lean_fwd", "lean_back", "tube_crouch", "air", "grab", "floater", "tube_rail", "hand_drag"]
 
 var tree: AnimationTree
 var playback: AnimationNodeStateMachinePlayback
@@ -70,6 +70,17 @@ func setup(model: Node) -> void:
 	_link(sm, "fall", "prone_idle", 0.5)
 	_link(sm, "ride", "prone_idle", 0.5)
 
+	for clip in ["air","grab","floater","snap","landing","tube_rail","hand_drag"]:
+		sm.add_node(clip,_anim(clip))
+	for clip in ["air","grab","floater","snap","landing","tube_rail","hand_drag"]:
+		for from in ["ride","air","grab","floater","snap","landing","tube_rail","hand_drag"]:
+			if from!=clip: _link(sm,from,clip,0.10)
+		var to_ride := _link(sm,clip,"ride",0.12)
+		if clip=="landing":
+			to_ride.switch_mode=AnimationNodeStateMachineTransition.SWITCH_MODE_AT_END
+			to_ride.advance_mode=AnimationNodeStateMachineTransition.ADVANCE_MODE_AUTO
+		_link(sm,clip,"fall",0.10)
+		_link(sm,clip,"prone_idle",0.15)
 	tree = AnimationTree.new()
 	tree.name = "AnimationTree"
 	model.add_child(tree)

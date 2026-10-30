@@ -35,6 +35,7 @@ const LIST := [
 			{"id": "m1", "text": "Completa la ola", "type": "complete", "value": 1},
 			{"id": "m2", "text": "Suma 2.500 puntos", "type": "score", "value": 2500},
 			{"id": "m3", "text": "Combo ×4", "type": "combo", "value": 4},
+			{"id": "m4", "text": "Aterriza un aéreo", "type": "trick", "kind": "air", "value": 1},
 		],
 	},
 	{
@@ -57,6 +58,7 @@ const LIST := [
 			{"id": "r1", "text": "Completa la ola", "type": "complete", "value": 1},
 			{"id": "r2", "text": "Alcanza 28 km/h", "type": "speed", "value": 28},
 			{"id": "r3", "text": "10 s en el pocket", "type": "pocket", "value": 10},
+			{"id": "r4", "text": "Mano en el tubo y salida", "type": "trick", "kind": "hand_drag", "value": 1},
 		],
 	},
 	{
@@ -81,6 +83,7 @@ const LIST := [
 			{"id": "f1", "text": "Completa la ola", "type": "complete", "value": 1},
 			{"id": "f2", "text": "Recorre 110 m", "type": "distance", "value": 110},
 			{"id": "f3", "text": "Combo ×5", "type": "combo", "value": 5},
+			{"id": "f4", "text": "Completa un floater", "type": "trick", "kind": "floater", "value": 1},
 		],
 	},
 ]

@@ -7,7 +7,7 @@ $keys = $env:BARRELS_KEYS_DIR
 if ([string]::IsNullOrWhiteSpace($keys)) { $keys = Join-Path (Split-Path $proj -Parent) "barrels-claves" }
 $tmp = "$tools\tmp\barrels-android"
 New-Item -ItemType Directory -Force $tmp, "$proj\build\android" | Out-Null
-$envNames = @("GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD", "GODOT_ANDROID_KEYSTORE_RELEASE_PATH", "GODOT_ANDROID_KEYSTORE_RELEASE_USER", "JAVA_HOME", "ANDROID_HOME", "GRADLE_USER_HOME", "TEMP", "TMP", "JAVA_TOOL_OPTIONS")
+$envNames = @("GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD", "GODOT_ANDROID_KEYSTORE_RELEASE_PATH", "GODOT_ANDROID_KEYSTORE_RELEASE_USER", "JAVA_HOME", "ANDROID_HOME", "GRADLE_USER_HOME", "TEMP", "TMP", "JAVA_TOOL_OPTIONS", "GRADLE_OPTS")
 $old = @{}
 foreach ($name in $envNames) { $old[$name] = [Environment]::GetEnvironmentVariable($name, 'Process') }
 try {
@@ -21,9 +21,13 @@ try {
  $env:TEMP = $tmp
  $env:TMP = $tmp
  $env:JAVA_TOOL_OPTIONS = "-Djavax.net.ssl.trustStoreType=Windows-ROOT -Djava.io.tmpdir=$tmp"
+ $env:GRADLE_OPTS = "-Dorg.gradle.daemon=false"
+ $presetText = Get-Content -LiteralPath "$proj\export_presets.cfg" -Raw
+ $releaseVersion = [regex]::Match($presetText, 'version/name="([0-9]+\.[0-9]+\.[0-9]+)"').Groups[1].Value
+ if ([string]::IsNullOrWhiteSpace($releaseVersion)) { throw "No se pudo leer version/name en export_presets.cfg" }
  $jobs = @()
- if ($Format -in @("All", "AAB")) { $jobs += ,@("Android Play Store", "barrels-1.2.0.aab") }
- if ($Format -in @("All", "APK")) { $jobs += ,@("Android APK", "barrels-1.2.0.apk") }
+ if ($Format -in @("All", "AAB")) { $jobs += ,@("Android Play Store", "barrels-$releaseVersion.aab") }
+ if ($Format -in @("All", "APK")) { $jobs += ,@("Android APK", "barrels-$releaseVersion.apk") }
  foreach ($job in $jobs) {
   $log = "$tmp\$($job[1]).log"
   $destination = "$proj\build\android\$($job[1])"

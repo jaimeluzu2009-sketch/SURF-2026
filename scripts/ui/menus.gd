@@ -21,7 +21,8 @@ var _settings_body: VBoxContainer
 var _settings_tab := 0
 var _career_body: VBoxContainer
 var _career_tab := 0
-var _custom_body: VBoxContainer
+var _customizer: SurfCustomizer
+signal customize_view(index: int)
 var _main_level: Label
 var _main_xp: ProgressBar
 var _main_xp_text: Label
@@ -368,75 +369,22 @@ func _spot_card(i: int) -> Control:
 # ------------------------------------------------------------------ surfista y tabla
 
 func _build_custom() -> void:
-	var s := _screen("custom")
-	_side_shade(s, 0.55, 0.95)
-	var m := _margin_box(s)
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 14)
-	col.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	col.custom_minimum_size.x = 560
-	m.add_child(col)
-	_header(col, "Personalización", "SURFISTA Y TABLA", 2)
-	_custom_body = VBoxContainer.new()
-	_custom_body.add_theme_constant_override("separation", 14)
-	var custom_scroll := ScrollContainer.new()
-	custom_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	custom_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	col.add_child(custom_scroll)
-	_custom_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	custom_scroll.add_child(_custom_body)
-
+	var screen := _screen("custom")
+	_side_shade(screen,0.58,0.97)
+	var margin := MarginContainer.new()
+	margin.anchor_right=0.44
+	margin.anchor_bottom=1.0
+	for side in ["left","right","top","bottom"]:
+		margin.add_theme_constant_override("margin_"+side,24)
+	screen.add_child(margin)
+	_customizer=SurfCustomizer.new()
+	_customizer.finished.connect(back)
+	_customizer.view_changed.connect(func(i): customize_view.emit(i))
+	margin.add_child(_customizer)
 
 func _refresh_custom() -> void:
-	_clear(_custom_body)
-	_custom_body.add_child(UiKit.setting_row("Apariencia", "Las tres apariencias están disponibles desde el inicio.",
-		UiKit.option(Perfil.STYLES.map(func(s): return s["name"]), Perfil.style_index(), func(i):
-			Perfil.set_style(i)
-			_refresh_custom())))
-	if Perfil.style_id == "custom":
-		_custom_body.add_child(UiKit.setting_row("Ropa", "",
-			UiKit.option(["Neopreno", "Licra y bermuda"], Perfil.outfit, func(i):
-				Perfil.set_outfit(i))))
-	var names := {"wetsuit": "Color de ropa", "accent": "Detalle / bermuda", "deck": "Cubierta de la tabla", "bottom": "Fondo de la tabla"}
-	for slot in ["wetsuit", "accent", "deck", "bottom"]:
-		var sec := VBoxContainer.new()
-		sec.add_theme_constant_override("separation", 6)
-		var head := HBoxContainer.new()
-		head.add_child(UiKit.kicker(names[slot], UiKit.SUNSET))
-		head.add_child(UiKit.expand())
-		head.add_child(UiKit.label(Perfil.item(slot, Perfil.look[slot])["name"], 18, UiKit.SAND, UiKit.font_title()))
-		sec.add_child(head)
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 12)
-		for it in Perfil.SLOTS[slot]:
-			row.add_child(_swatch(slot, it))
-		sec.add_child(row)
-		_custom_body.add_child(sec)
-	var note := UiKit.label("Sube de nivel surfeando para desbloquear más colores.", 16, UiKit.TEXT_DIM)
-	_custom_body.add_child(note)
-
-
-func _swatch(slot: String, it: Dictionary) -> Control:
-	var b := Button.new()
-	b.custom_minimum_size = Vector2(60, 60)
-	var on: bool = Perfil.look[slot] == it["id"]
-	var open_it := Perfil.unlocked(it)
-	var col: Color = it["color"]
-	b.add_theme_stylebox_override("normal", UiKit.box(col if open_it else col.darkened(0.6), 14,
-		UiKit.SAND if on else Color(UiKit.SAND, 0.2), 4 if on else 1, 4))
-	b.add_theme_stylebox_override("hover", UiKit.box(col.lightened(0.1), 14, UiKit.TURQUOISE, 3, 4))
-	b.add_theme_stylebox_override("pressed", UiKit.box(col, 14, UiKit.SAND, 4, 4))
-	b.add_theme_stylebox_override("focus", UiKit.box(Color(0, 0, 0, 0), 14, UiKit.CORAL, 3, 4))
-	b.tooltip_text = it["name"] if open_it else "%s · nivel %d" % [it["name"], it["level"]]
-	if not open_it:
-		b.text = "NV %d" % it["level"]
-		b.add_theme_color_override("font_color", UiKit.SAND)
-		b.add_theme_font_size_override("font_size", 18)
-		b.disabled = true
-	b.pressed.connect(func():
-		Perfil.set_look(slot, it["id"])
-		_refresh_custom())
-	return b
+	_customizer.reset_preview()
+	_customizer.refresh()
 
 
 # ------------------------------------------------------------------ carrera
@@ -504,7 +452,7 @@ func _career_progress() -> void:
 	_career_body.add_child(UiKit.panel(Color(UiKit.NIGHT, 0.6), 14, Color(UiKit.SAND, 0.08), 18))
 	_career_body.get_child(_career_body.get_child_count() - 1).add_child(stats)
 	_career_body.add_child(UiKit.kicker("Próximos desbloqueos", UiKit.SUNSET))
-	var names := {"wetsuit": "Neopreno", "accent": "Franja", "deck": "Cubierta", "bottom": "Fondo"}
+	var names := {"skin":"Piel", "hair":"Cabello", "wetsuit": "Neopreno", "accent": "Franja", "deck": "Cubierta", "bottom": "Fondo"}
 	var any := false
 	for slot in Perfil.SLOTS:
 		for it in Perfil.SLOTS[slot]:
