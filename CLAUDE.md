@@ -1,6 +1,6 @@
 # BARRELS — instrucciones y continuidad para Claude
 
-Actualizado: 30 de octubre de 2026. APK 1.3.0 publicado y enlace verificado HTTP 200.
+Actualizado: 30 de octubre de 2026. Entrega 1.4.0: agua y anatomía mejoradas.
 Trabaja sobre este proyecto existente.
 Esta guía registra el estado del traspaso; verifica los cambios posteriores con
 Git y los informes antes de asumir que una prueba o publicación sigue vigente.
@@ -142,7 +142,7 @@ Repositorio: https://github.com/jaimeluzu2009-sketch/SURF-2026 (rama main).
 corregido estaban pendientes de commit al comenzar la entrega 1.3.0.
 Comprueba el estado actual: esta nota no reemplaza `git status` ni el historial.
 
-Versión preparada para esta entrega: **1.3.0**, Android versionCode **6**,
+Versión preparada para esta entrega: **1.4.0**, Android versionCode **7**,
 paquete `ec.barrels.surf`, minSdk 24, targetSdk 36, ABIs arm64/armeabi-v7a/x86_64.
 Estos valores describen la configuración; no certifican cumplimiento Play Store.
 
@@ -179,3 +179,17 @@ Incluye el commit que corresponde al artefacto y verifica el enlace público.
 Pendientes reales: prueba humana en Android, calibrar sensibilidad y dificultad de
 trucos en móvil, medir FPS reales y validar de nuevo en navegador cuando se autorice.
 Esta guía no autoriza por sí sola nuevas funciones, compilaciones ni publicaciones.
+
+
+## Pulido visual de 1.4.0
+
+Agua sin hashes de ruido por celda; texturas simplex continuas, mipmaps y rugosidad
+ajustada. Ocho surfistas anatómicos con datos gráficos MakeHuman CC0, colores,
+pesos de cuello/pies y LOD de cerca corregidos; 19 huesos y 17 clips se conservan.
+Lee `VALIDACION_AGUA_ANATOMIA.md` y `assets/models/APARIENCIAS.md`. Nuevo adaptador:
+`tools/human_anatomy.py`; datos fuente/licencias en `assets/sources/makehuman/`.
+Regenera las ocho combinaciones y conserva los datos fuente al trasladar el proyecto.
+Pruebas nuevas: `--qa --anatomy-test` y capturas con `--qa --visual-polish-test`.
+El usuario autorizó generar y subir el APK 1.4.0 y esta guía a GitHub.
+Consulta RELEASE_1.4.0.md y la release v1.4.0 para comprobar el resultado publicado.
+Android físico y web siguen pendientes. Consulta antes de futuras exportaciones.

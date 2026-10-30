@@ -7,9 +7,9 @@ signal changed
 const PATH := "user://ajustes.cfg"
 const PRESETS := [
 	{"name": "Baja", "water_grid": 136, "shadows": false, "shadow_size": 1024, "msaa": Viewport.MSAA_DISABLED,
-		"scale": 0.7, "particles": 0.35, "detail": false, "water_detail": 1, "wake_points": 6, "glow": false, "far": 700.0, "scenery": 0},
+		"scale": 0.7, "particles": 0.35, "detail": false, "water_detail": 0, "wake_points": 6, "glow": false, "far": 700.0, "scenery": 0},
 	{"name": "Media", "water_grid": 152, "shadows": true, "shadow_size": 2048, "msaa": Viewport.MSAA_DISABLED,
-		"scale": 0.85, "particles": 0.7, "detail": true, "water_detail": 2, "wake_points": 10, "glow": false, "far": 900.0, "scenery": 1},
+		"scale": 0.85, "particles": 0.7, "detail": true, "water_detail": 1, "wake_points": 10, "glow": false, "far": 900.0, "scenery": 1},
 	{"name": "Alta", "water_grid": 196, "shadows": true, "shadow_size": 4096, "msaa": Viewport.MSAA_4X,
 		"scale": 1.0, "particles": 1.0, "detail": true, "water_detail": 2, "wake_points": 12, "glow": true, "far": 1200.0, "scenery": 2},
 ]

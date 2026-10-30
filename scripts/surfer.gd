@@ -159,6 +159,7 @@ func _apply_look() -> void:
 		look["Grip"] = Color(0.87, 0.86, 0.80)
 	SurfMaterials.apply($Rider/SurferModel, detail, look)
 	SurfMaterials.apply($Visual/Board, detail, look)
+	if body: _character_lod(body)
 
 
 ## Congela al surfista (menús): no se mueve ni reacciona a las olas.
@@ -192,6 +193,7 @@ func update_showcase() -> void:
 
 func set_showcase(on: bool) -> void:
 	_showcase = on
+	_character_lod($Rider/SurferModel.find_child("Surfer",true,false) as MeshInstance3D)
 	showcase_board=false
 	rider.show()
 	leash.show()
@@ -639,3 +641,9 @@ func _update_tube(delta: float) -> void:
 			tube_exit.emit(_tube_stint)
 		_tube_stint = 0.0
 		_tube_hit = 0.0
+
+
+func _character_lod(body: MeshInstance3D) -> void:
+	# Anatomical face/fingers should not collapse in the outfit preview or close camera.
+	# Keep automatic simplification at distance and a lighter bias on low-end phones.
+	body.lod_bias=6.0 if _showcase else (4.0 if Ajustes.preset()["detail"] else 1.5)

@@ -258,7 +258,7 @@ func _build_main() -> void:
 	cv.add_child(_main_xp)
 	card.add_child(cv)
 	col.add_child(card)
-	var credit := UiKit.label("Fuentes Barlow (SIL OFL) · Todo lo demás generado por el juego", 13,
+	var credit := UiKit.label("Fuentes Barlow (SIL OFL) · Base humana MakeHuman (CC0)", 13,
 		Color(UiKit.TEXT_DIM, 0.6))
 	credit.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
 	credit.offset_left = -520

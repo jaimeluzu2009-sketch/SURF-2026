@@ -38,6 +38,7 @@ static func noise_tex(key: String, size: int, freq: float, octaves: int, normal:
 static func _base(col: Color) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
 	m.albedo_color = col
+	m.vertex_color_use_as_albedo=true
 	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 	return m
 
@@ -48,12 +49,12 @@ static func make(mat_name: String, col: Color, detail: bool) -> Material:
 	match mat_name:
 		"Neopreno":
 			# Neopreno mojado: casi mate, con un tejido fino que se ve de cerca.
-			m.roughness = 0.62
-			m.metallic_specular = 0.35
+			m.roughness = 0.76
+			m.metallic_specular = 0.24
 			if detail:
 				m.normal_enabled = true
 				m.normal_texture = noise_tex("neopreno_n", 128, 0.25, 2, true, 3.0)
-				m.normal_scale = 0.35
+				m.normal_scale = 0.13
 				m.uv1_scale = Vector3(14, 14, 1)
 				m.roughness_texture = noise_tex("neopreno_r", 64, 0.08, 2, false)
 				m.roughness_texture_channel = BaseMaterial3D.TEXTURE_CHANNEL_RED
@@ -63,32 +64,38 @@ static func make(mat_name: String, col: Color, detail: bool) -> Material:
 			if detail:
 				m.normal_enabled = true
 				m.normal_texture = noise_tex("neopreno_n", 128, 0.25, 2, true, 3.0)
-				m.normal_scale = 0.3
+				m.normal_scale = 0.10
 				m.uv1_scale = Vector3(14, 14, 1)
 		"Piel":
+			# Keep low-resolution shadow maps from drawing bands across face and fingers.
+			# The mesh still casts its silhouette onto the water.
+			m.disable_receive_shadows=true
 			# Piel con brillo sutil (agua) y un borde de luz que la separa del fondo.
-			m.roughness = 0.48
-			m.metallic_specular = 0.42
+			m.roughness = 0.66
+			m.metallic_specular = 0.28
 			m.rim_enabled = true
-			m.rim = 0.25
+			m.rim = 0.06
 			m.rim_tint = 0.6
 			if detail:
 				m.normal_enabled = true
-				m.normal_texture = noise_tex("piel_n", 128, 0.3, 3, true, 1.5)
-				m.normal_scale = 0.25
+				m.normal_texture = noise_tex("piel_n", 128, 0.3, 3, true, 0.5)
+				m.normal_scale = 0.05
 				m.uv1_scale = Vector3(10, 10, 1)
 		"Pelo":
 			# Mechones: ruido estirado en una dirección.
 			m.roughness = 0.55
-			m.metallic_specular = 0.45
+			m.metallic_specular = 0.24
 			if detail:
 				m.normal_enabled = true
 				m.normal_texture = noise_tex("pelo_n", 64, 0.35, 3, true, 6.0, Vector2(1, 4))
-				m.normal_scale = 0.8
+				m.normal_scale = 0.20
 				m.uv1_scale = Vector3(18, 5, 1)
+		"Iris", "Esclerotica":
+			m.roughness=0.45
+			m.metallic_specular=0.22
 		"Ojos":
 			m.roughness = 0.1
-			m.metallic_specular = 0.8
+			m.metallic_specular = 0.35
 		"Cubierta":
 			# Fibra de vidrio con parafina: brillo suave y manchas de cera más mates.
 			m.roughness = 0.22

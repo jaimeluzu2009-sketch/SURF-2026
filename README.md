@@ -32,4 +32,8 @@ Los APK se publican como assets de las releases; no forman parte del historial G
 
 No se incluyen claves, contraseñas, SDK, cachés de Godot ni compilaciones. La carpeta de firma queda fuera del proyecto. Para conservar la compatibilidad con una aplicación instalada se necesita la misma clave de firma; cada desarrollador debe gestionar sus propias credenciales.
 
-Los modelos y texturas procedurales se generan con las herramientas de `tools/`. Procedencia de recursos en `assets/models/APARIENCIAS.md`, `audio/PROCEDENCIA.md` y las licencias de `fonts/`.
+Los modelos se adaptan/generan con las herramientas de `tools/`; la nueva anatomía usa datos gráficos CC0 de MakeHuman. Las texturas de detalle son procedurales. Procedencia de recursos en `assets/models/APARIENCIAS.md`, `audio/PROCEDENCIA.md` y las licencias de `fonts/`.
+
+
+Versión 1.4.0: agua continua y surfista anatómico. Ver
+[VALIDACION_AGUA_ANATOMIA.md](VALIDACION_AGUA_ANATOMIA.md) y [RELEASE_1.4.0.md](RELEASE_1.4.0.md).

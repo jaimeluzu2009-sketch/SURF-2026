@@ -7,24 +7,9 @@ exec(compile(src.rsplit("\nmain()",1)[0],ns["__file__"],"exec"),ns)
 globals().update({k:v for k,v in ns.items() if not k.startswith('__')})
 
 def make_hair(kind, mat):
- parts=[]
- count=[28,9,18][kind]
- for i in range(count):
-  a=i*2.399963
-  z=0.18+0.78*(i+0.5)/count
-  ring=math.sqrt(1-z*z)
-  center=V(0.087*ring*math.cos(a),-0.012+0.108*ring*math.sin(a),1.685+0.119*z)
-  bm=bmesh.new()
-  bmesh.ops.create_uvsphere(bm,u_segments=7,v_segments=5,radius=1.0)
-  scale=V(0.022,0.023,0.020) if kind==0 else (V(0.015,0.041,0.009) if kind==1 else V(0.022,0.038,0.014))
-  for v in bm.verts:
-   v.co=V(v.co.x*scale.x,v.co.y*scale.y,v.co.z*scale.z)+center
-   if kind>0:
-    v.co.y+=0.018*(v.co.z-center.z)/scale.z
-  ob=obj_from_bmesh('HairClump',bm,mat)
-  vg=ob.vertex_groups.new(name='head');vg.add(list(range(len(ob.data.vertices))),1.0,'REPLACE')
-  parts.append(ob)
- return parts
+ from human_anatomy import hair_strands
+ return hair_strands(globals(),kind,mat)
+
 
 def build_variant(kind, sid, outfit=None):
  summer=(kind!=1) if outfit is None else outfit==1

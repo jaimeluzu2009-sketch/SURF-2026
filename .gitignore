@@ -22,3 +22,7 @@ contrasena*.txt
 contraseña*.txt
 /barrels-claves/
 *.log
+
+# Caches Python de los generadores
+__pycache__/
+*.py[cod]

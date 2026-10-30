@@ -11,7 +11,7 @@ void fragment() {
 	vec3 v = normalize(wpos - CAMERA_POSITION_WORLD);
 	float fres = pow(1.0 - clamp(-v.y, 0.0, 1.0), 5.0);
 	float dist = length(wpos - CAMERA_POSITION_WORLD);
-	ALBEDO = mix(deep_color * 0.95, sky_color * 0.8, clamp(fres * 0.6 + smoothstep(150.0, 900.0, dist) * 0.25, 0.0, 0.8));
-	ROUGHNESS = 0.2;
-	SPECULAR = 0.5;
+	ALBEDO = mix(deep_color * 0.95, sky_color * 0.72, clamp(fres * 0.46 + smoothstep(150.0, 900.0, dist) * 0.25, 0.0, 0.8));
+	ROUGHNESS = 0.33;
+	SPECULAR = 0.38;
 }

@@ -5,6 +5,9 @@ render_mode cull_back, specular_schlick_ggx;
 
 #include "res://shaders/wave_common.gdshaderinc"
 
+uniform sampler2D ocean_noise : repeat_enable, filter_linear_mipmap;
+uniform sampler2D ocean_normal : repeat_enable, filter_linear_mipmap;
+
 uniform vec3 deep_color : source_color = vec3(0.03, 0.20, 0.27);
 uniform vec3 shallow_color : source_color = vec3(0.07, 0.45, 0.45);
 uniform vec3 face_color : source_color = vec3(0.16, 0.66, 0.58);
@@ -31,25 +34,14 @@ varying vec3 world_pos;
 varying vec4 wave_terms;
 varying vec3 geo_normal;
 
-float hash(vec2 p) {
-	p = fract(p * vec2(123.34, 456.21));
-	p += dot(p, p + 45.32);
-	return fract(p.x * p.y);
-}
-
+// Textura simplex continua, compacta y con mipmaps: evita celdas de ruido cuadradas.
 float vnoise(vec2 p) {
-	vec2 i = floor(p);
-	vec2 f = fract(p);
-	vec2 u = f * f * (3.0 - 2.0 * f);
-	return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
-		mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+	return texture(ocean_noise,p/24.0).r;
 }
 
-// Gradiente (dx, dz) de un ruido que se desplaza; sirve para inclinar la normal.
-vec2 ripple(vec2 p, vec2 drift, float scale) {
-	vec2 q = p * scale + drift;
-	float n0 = vnoise(q);
-	return vec2(vnoise(q + vec2(0.2, 0.0)) - n0, vnoise(q + vec2(0.0, 0.2)) - n0) * 5.0;
+vec2 ocean_slope(vec2 uv) {
+	vec3 encoded=texture(ocean_normal,uv).xyz*2.0-1.0;
+	return encoded.xy;
 }
 
 float seg_dist(vec2 p, vec2 a, vec2 b, out float t) {
@@ -83,40 +75,42 @@ void fragment() {
 	vec3 v = view_ray / max(dist, 1e-3);
 	vec3 n_geo = normalize(geo_normal);
 
-	// --- Normales: oleaje corto en tres escalas que se mueven con el viento y el mar de fondo.
-	vec3 nw = n_geo;
-	if (detail_level > 0) {
-		float t = wave_time;
-		vec2 g = ripple(world_pos.xz, vec2(0.05, 0.35) * t, 0.35) * 0.55;
-		g += ripple(world_pos.xz, vec2(-0.45, 0.6) * t, 1.1) * 0.3 * (1.0 - sstep(60.0, 260.0, dist));
-		if (detail_level > 1) {
-			g += ripple(world_pos.xz, vec2(0.7, -0.3) * t, 3.3) * 0.16 * (1.0 - sstep(20.0, 120.0, dist));
-		}
-		// En la espuma el agua está revuelta: menos reflejos limpios.
-		nw = normalize(n_geo + vec3(-g.x, 0.0, -g.y) * 0.22);
-		NORMAL = normalize((VIEW_MATRIX * vec4(nw, 0.0)).xyz);
+	// Ondulación cruzada sin escalones de gradiente. El desplazamiento macro no cambia.
+	vec2 p=world_pos.xz;
+	float t=wave_time;
+	vec2 g=vec2(0.0);
+	if(detail_level>0) {
+		vec2 q=vec2(p.x*.87+p.y*.49,-p.x*.49+p.y*.87);
+		g=ocean_slope(q*.042+vec2(.009,-.015)*t)*.30;
+		g+=ocean_slope(vec2(-q.y,q.x)*.093+vec2(-.012,.008)*t)*.15*(1.0-sstep(65.0,230.0,dist));
+		if(detail_level>1) g+=ocean_slope(q*.21+vec2(.017,.006)*t)*.055*(1.0-sstep(18.0,85.0,dist));
+	} else {
+		// La calidad baja mantiene rizos suaves con una sola muestra.
+		g=ocean_slope(p*.04+vec2(.008,-.013)*t)*.18;
 	}
+	vec3 nw=normalize(n_geo+vec3(-g.x,0.0,-g.y));
+	NORMAL=normalize((VIEW_MATRIX*vec4(nw,0.0)).xyz);
 
 	// --- Color del agua.
 	vec3 col = mix(deep_color, shallow_color, sstep(-0.6, 1.6, world_pos.y));
 	// Manchas grandes de color (fondos, corrientes, nubes) para romper la uniformidad.
 	float patch = vnoise(world_pos.xz * 0.018 + vec2(wave_time * 0.01, 0.0));
 	float patch2 = vnoise(world_pos.xz * 0.06 - vec2(0.0, wave_time * 0.02));
-	col *= 0.86 + 0.22 * patch;
-	col = mix(col, shallow_color, 0.15 * patch2);
+	col *= 0.96 + 0.07 * patch;
+	col = mix(col, shallow_color, 0.045 * patch2);
 	// Cara de la ola: agua fina que deja pasar la luz (más verde y clara).
 	float face = sstep(0.25, 0.85, profile) * sstep(-0.5, 0.8, u);
 	float thin = sstep(0.6, 0.95, profile) * sstep(-0.3, 0.6, u);
-	col = mix(col, face_color, face * 0.7);
+	col = mix(col, face_color, face * 0.46);
 	col = mix(col, shallow_color * 1.15, sstep(shore_z - 22.0, shore_z, world_pos.z));
 	// Reflejo del cielo según el ángulo (Fresnel): el mar lejano se funde con el horizonte.
 	float fres = pow(1.0 - clamp(dot(nw, -v), 0.0, 1.0), 5.0);
-	col = mix(col, sky_color * 0.8, clamp(fres * 0.6 + sstep(150.0, 900.0, dist) * 0.25, 0.0, 0.8));
+	col = mix(col, sky_color * 0.72, clamp(fres * 0.46 + sstep(150.0, 900.0, dist) * 0.25, 0.0, 0.8));
 
 	// --- Espuma.
 	float nz1 = vnoise(world_pos.xz * 0.8 + vec2(0.0, wave_time * 0.9));
 	float nz2 = vnoise(world_pos.xz * 2.9 - vec2(wave_time * 0.4, 0.0));
-	float breakup = nz1 * 0.6 + nz2 * 0.4;
+	float breakup = nz1 * 0.52 + nz2 * 0.48;
 	// Vetas alargadas en la dirección de avance de la ola (espuma que se queda atrás).
 	float streak = vnoise(vec2(world_pos.x * 1.4, world_pos.z * 0.3 - wave_time * 0.5));
 	float trail = (u + 3.0) / 7.0;
@@ -177,14 +171,14 @@ void fragment() {
 	foam = clamp(foam, 0.0, 1.0);
 	float bubbles = vnoise(world_pos.xz * 6.0 + vec2(wave_time * 0.8, 0.0));
 	foam = sstep(0.32, 0.78, foam * (0.3 + 0.95 * breakup) + 0.15 * (bubbles - 0.5) * foam);
-	vec3 foam_tint = mix(face_color * 1.4, foam_color, 0.55 + 0.45 * breakup);
+	vec3 foam_tint = mix(face_color * 1.4, foam_color, 0.62 + 0.32 * breakup);
 
 	ALBEDO = mix(col, foam_tint, foam);
 	// Luz que atraviesa la cresta cuando se mira hacia el sol (falso subsuperficial).
 	float back = clamp(dot(v, normalize(to_sun)) * 0.5 + 0.5, 0.0, 1.0);
 	EMISSION = face_color * thin * (0.08 + 0.22 * back * back) * (1.0 - foam);
-	ROUGHNESS = mix(mix(0.05, 0.2, sstep(30.0, 260.0, dist)), 0.85, foam);
-	SPECULAR = 0.5;
+	ROUGHNESS = mix(mix(0.19, 0.33, sstep(30.0, 260.0, dist)), 0.85, foam);
+	SPECULAR = 0.38;
 	METALLIC = 0.0;
 	if (debug_flat > 0.5) {
 		// Altura codificada en color: R = parte gruesa (64 niveles), G = resto.

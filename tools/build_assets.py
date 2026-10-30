@@ -13,6 +13,7 @@ import bmesh
 import math
 import os
 import sys
+from pathlib import Path
 from mathutils import Vector, Quaternion
 
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
@@ -390,123 +391,15 @@ for side, sx in (("L", 1), ("R", -1)):
 	])
 
 
-def build_body(mats):
-	names = list(JOINTS)
-	idx = {n: i for i, n in enumerate(names)}
-	me = bpy.data.meshes.new("BodySkin")
-	me.from_pydata([JOINTS[n][0] for n in names], [(idx[a], idx[b]) for a, b in SKIN_EDGES], [])
-	ob = link(bpy.data.objects.new("BodySkin", me))
-	skin = ob.modifiers.new("Skin", 'SKIN')
-	skin.use_smooth_shade = True
-	layer = me.skin_vertices[0]
-	for n, i in idx.items():
-		layer.data[i].radius = JOINTS[n][1]
-	layer.data[idx["pelvis"]].use_root = True
-	sub = ob.modifiers.new("Sub", 'SUBSURF')
-	sub.levels = 2
-	sub.render_levels = 2
-	dg = bpy.context.evaluated_depsgraph_get()
-	me2 = bpy.data.meshes.new_from_object(ob.evaluated_get(dg))
-	bpy.data.objects.remove(ob, do_unlink=True)
-	# Place garment boundaries on actual loops instead of a sawtooth across quads.
-	bm = bmesh.new()
-	bm.from_mesh(me2)
-	for z in [0.118, 0.62, 0.69, 1.02, 1.315, 1.34, 1.365, 1.43, 1.49, 1.525]:
-		bmesh.ops.bisect_plane(bm, geom=list(bm.verts)+list(bm.edges)+list(bm.faces), dist=0.00001,
-			plane_co=V(0,0,z), plane_no=V(0,0,1), clear_inner=False, clear_outer=False)
-	for x in [-0.612, -0.40, -0.37, -0.195, -0.16, -0.10, 0.10, 0.16, 0.195, 0.37, 0.40, 0.612]:
-		bmesh.ops.bisect_plane(bm, geom=list(bm.verts)+list(bm.edges)+list(bm.faces), dist=0.00001,
-			plane_co=V(x,0,0), plane_no=V(1,0,0), clear_inner=False, clear_outer=False)
-	bm.to_mesh(me2)
-	bm.free()
-	me2.update()
-	body = link(bpy.data.objects.new("Body", me2))
-	for key in ("wetsuit", "skin", "accent", "pads"):
-		me2.materials.append(mats[key])
-	for p in me2.polygons:
-		c = p.center
-		ax = abs(c.x)
-		if c.z > 1.525 or ax > 0.612 or c.z < 0.118:
-			p.material_index = 1
-		elif ax < 0.2 and 1.315 < c.z < 1.365:
-			p.material_index = 2
-		elif 0.05 < ax < 0.16 and 0.455 < c.z < 0.545 and c.y < 0.0:
-			p.material_index = 3
-		else:
-			p.material_index = 0
-		p.use_smooth = True
-	return body
+# Anatomical source data is CC0; see assets/sources/makehuman/.
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+from human_anatomy import detailed_body, detailed_head, detail_colors
 
+def build_body(mats):
+	return detailed_body(globals(),mats)
 
 def build_head(mats):
-	center = V(0, -0.012, 1.685)
-	scale = V(0.080, 0.100, 0.116)
-
-	def shape(v):
-		v = v.copy()
-		if v.z < 0:
-			v.x *= 1 + 0.22 * v.z
-		if v.y < 0:
-			nose = 0.16 * math.exp(-((v.x / 0.16) ** 2 + ((v.z + 0.02) / 0.22) ** 2))
-			v.y -= nose * (-v.y)
-			if v.z < -0.35:
-				v.y -= 0.05 * (-v.y)
-		for sx in (1, -1):
-			d = (v - V(0.36 * sx, -0.88, 0.14)).length_squared
-			v *= 1 - 0.05 * math.exp(-d / 0.02)
-		return v
-
-	def sphere(radius, keep=None):
-		bm = bmesh.new()
-		bmesh.ops.create_uvsphere(bm, u_segments=22, v_segments=14, radius=radius)
-		for v in bm.verts:
-			v.co = shape(v.co)
-		if keep:
-			bmesh.ops.delete(bm, geom=[v for v in bm.verts if not keep(v.co / radius)], context='VERTS')
-		for v in bm.verts:
-			v.co = center + V(v.co.x * scale.x, v.co.y * scale.y, v.co.z * scale.z)
-		return bm
-
-	head = obj_from_bmesh("Head", sphere(1.0), mats["skin"])
-
-	def hair_keep(u):
-		zt = 0.05 - 0.5 * max(0.0, u.y) + 0.32 * max(0.0, -u.y)
-		return u.z > zt
-	hair = obj_from_bmesh("Hair", sphere(1.07, hair_keep), mats["hair"])
-
-	parts = [head, hair]
-	for sx in (1, -1):
-		bm = bmesh.new()
-		bmesh.ops.create_uvsphere(bm, u_segments=8, v_segments=6, radius=0.0038)
-		u = V(0.37 * sx, -0.86, 0.13).normalized() * 0.93
-		bmesh.ops.translate(bm, vec=center + V(u.x * scale.x, u.y * scale.y - 0.009, u.z * scale.z), verts=bm.verts)
-		parts.append(obj_from_bmesh("Eye", bm, mats["eye"]))
-		bm = bmesh.new()
-		bmesh.ops.create_uvsphere(bm, u_segments=8, v_segments=6, radius=1.0)
-		bmesh.ops.scale(bm, vec=V(0.012, 0.022, 0.031), verts=bm.verts)
-		bmesh.ops.translate(bm, vec=V(0.079 * sx, 0.002, 1.68), verts=bm.verts)
-		parts.append(obj_from_bmesh("Ear", bm, mats["skin"]))
-	# Small facial volumes remain readable in a close gameplay camera.
-	eye_white = make_mat("Esclerotica", srgb(0.72,0.70,0.63), 0.5)
-	lip = make_mat("Labios", srgb(0.39,0.22,0.18), 0.65)
-	for sx in (-1,1):
-		for name, pos, sc, mat in [
-			("Sclera", V(sx*0.029,-0.104,1.700), V(0.008,0.003,0.0045), eye_white),
-			("Brow", V(sx*0.031,-0.104,1.713), V(0.016,0.004,0.003), mats["hair"])]:
-			bm=bmesh.new()
-			bmesh.ops.create_uvsphere(bm,u_segments=8,v_segments=5,radius=1)
-			for v in bm.verts:
-				v.co=V(v.co.x*sc.x,v.co.y*sc.y,v.co.z*sc.z)+pos
-			parts.append(obj_from_bmesh(name,bm,mat))
-	bm=bmesh.new()
-	bmesh.ops.create_uvsphere(bm,u_segments=10,v_segments=4,radius=1)
-	for v in bm.verts:
-		v.co=V(v.co.x*0.019,-0.110+v.co.y*0.003,1.642+v.co.z*0.0025)
-	parts.append(obj_from_bmesh("Lips",bm,lip))
-	for p in parts:
-		vg = p.vertex_groups.new(name="head")
-		vg.add(list(range(len(p.data.vertices))), 1.0, 'REPLACE')
-	return parts
+	return detailed_head(globals(),mats)
 
 
 def build_cuff(mats):
@@ -530,6 +423,19 @@ def skin_weights(body, arm):
 	groups = {name: body.vertex_groups.new(name=name) for name, _, _ in bones}
 	for v in body.data.vertices:
 		p = v.co
+		if p.z<.14:
+			side="L" if p.x>=0 else "R"
+			t=max(0.0,min(1.0,(.14-p.z)/.03))
+			t=t*t*(3.0-2.0*t)
+			groups["foot_"+side].add([v.index],t,'REPLACE')
+			groups["shin_"+side].add([v.index],1.0-t,'REPLACE')
+			continue
+		if p.z>1.53:
+			t=max(0.0,min(1.0,(p.z-1.53)/.08))
+			t=t*t*(3.0-2.0*t)
+			groups["head"].add([v.index],t,'REPLACE')
+			groups["neck"].add([v.index],1.0-t,'REPLACE')
+			continue
 		cands = []
 		for name, a, b in bones:
 			if name.endswith("_R") and p.x > 0.03:
@@ -587,7 +493,11 @@ def solve_pose(arm, spec):
 					tdir = root_q @ s[1].normalized()
 				else:
 					tdir = s[1].normalized()
-				D[name] = (Dp @ rest_dir).rotation_difference(tdir) @ Dp
+				if name.startswith("foot_") and s[0]=="w" and abs(tdir.z+.296)<.05:
+					# A planted foot needs a level sole, not the shin's inherited roll.
+					D[name]=qz(math.degrees(math.atan2(tdir.y,tdir.x)-math.atan2(rest_dir.y,rest_dir.x)))
+				else:
+					D[name] = (Dp @ rest_dir).rotation_difference(tdir) @ Dp
 		L = Dp.inverted() @ D[name]
 		out[name] = rest_q.inverted() @ L @ rest_q
 	root = bones[0]
@@ -834,12 +744,13 @@ def build_actions(arm):
 # ---------------------------------------------------------------- export y previews
 
 def export_glb(objs, path, animations):
+	for ob in objs: detail_colors(ob)
 	bpy.ops.object.select_all(action='DESELECT')
 	for o in objs:
 		o.select_set(True)
 	bpy.context.view_layer.objects.active = objs[0]
 	kwargs = dict(filepath=path, export_format='GLB', use_selection=True, export_apply=False,
-		export_animations=animations, export_yup=True)
+		export_animations=animations, export_yup=True, export_vertex_color="ACTIVE")
 	if animations:
 		kwargs.update(export_animation_mode='ACTIONS', export_force_sampling=True, export_frame_step=1,
 			export_optimize_animation_size=True)

@@ -20,6 +20,7 @@ var _far_mat: ShaderMaterial
 func _ready() -> void:
 	_mat = ShaderMaterial.new()
 	_mat.shader = WATER_SHADER
+	_setup_surface_textures()
 	material_override = _mat
 	cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	# Mar lejano hasta el horizonte, 0.6 m por debajo para no asomar entre las olas.
@@ -136,3 +137,31 @@ func set_colors(deep: Color, shallow: Color, face: Color) -> void:
 
 func set_debug_flat(on: bool) -> void:
 	_mat.set_shader_parameter("debug_flat", 1.0 if on else 0.0)
+
+
+func _setup_surface_textures() -> void:
+	var noise := FastNoiseLite.new()
+	noise.seed=7419
+	noise.noise_type=FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	noise.frequency=0.045
+	noise.fractal_octaves=3
+	var grain := NoiseTexture2D.new()
+	grain.width=256
+	grain.height=256
+	grain.seamless=true
+	grain.generate_mipmaps=true
+	grain.noise=noise
+	var normal := NoiseTexture2D.new()
+	normal.width=256
+	normal.height=256
+	normal.seamless=true
+	normal.generate_mipmaps=true
+	normal.as_normal_map=true
+	normal.bump_strength=1.4
+	normal.noise=noise
+	_mat.set_shader_parameter("ocean_noise",grain)
+	_mat.set_shader_parameter("ocean_normal",normal)
+
+
+func surface_noise() -> Texture2D:
+	return _mat.get_shader_parameter("ocean_noise") as Texture2D

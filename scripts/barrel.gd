@@ -118,3 +118,7 @@ func _build(t: float, d: PackedFloat32Array) -> void:
 	_array_mesh.clear_surfaces()
 	_array_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,arrays)
 	mesh=_array_mesh
+
+
+func set_surface_noise(texture: Texture2D) -> void:
+	_mat.set_shader_parameter("ocean_noise",texture)

@@ -53,6 +53,7 @@ func _ready() -> void:
 	barrel.name = "Barrel"
 	barrel.wave = wave
 	add_child(barrel)
+	barrel.set_surface_noise(water.surface_noise())
 	surf_audio = SurfAudio.new()
 	add_child(surf_audio)
 	surfer.tube_exit.connect(func(duration): score.tube_exit_bonus(duration))
@@ -99,6 +100,10 @@ func _ready() -> void:
 		bot.name = "Bot"
 		bot.setup(self, args)
 		add_child(bot)
+	elif "--anatomy-test" in args:
+		add_child(load("res://tests/anatomy_test.gd").new())
+	elif "--visual-polish-test" in args:
+		add_child(load("res://tests/visual_polish_test.gd").new())
 	elif "--custom-test" in args:
 		add_child(load("res://tests/custom_test.gd").new())
 	elif "--tricks-test" in args:
@@ -145,8 +150,8 @@ func _apply_spot_look() -> void:
 	env.adjustment_contrast = 1.06
 	env.adjustment_saturation = 1.08
 	sun.shadow_blur = 1.6
-	sun.shadow_bias = 0.04
-	sun.shadow_normal_bias = 1.2
+	sun.shadow_bias = 0.015
+	sun.shadow_normal_bias = 0.35
 	env.fog_light_color = spot["sky_horizon"]
 	env.fog_density = spot.get("fog", 0.0011)
 	# Con el cielo cubierto la luz ambiente pesa más que el sol.
