@@ -39,3 +39,10 @@ APK y checksum se distribuyen como assets, fuera del historial Git. Código y gu
 
 La autorización para generar y publicar esta entrega fue explícita. Después de
 ella se mantiene la preferencia del usuario: consultar antes de otra exportación.
+
+## Publicación confirmada
+
+Release v1.3.0 publicada el 30 de octubre de 2026. El enlace público del APK
+respondió HTTP 200 sin autenticación, con 229857962 bytes. El digest SHA-256 de
+GitHub coincide con el archivo local. El tag apunta al código 5d1502dee85508f4b8d6856d6dd3a9ae91193f3d.
+Los cambios posteriores a ese commit son documentación de la entrega.

@@ -1,6 +1,7 @@
 # BARRELS — instrucciones y continuidad para Claude
 
-Actualizado: 30 de octubre de 2026. Trabaja sobre este proyecto existente.
+Actualizado: 30 de octubre de 2026. APK 1.3.0 publicado y enlace verificado HTTP 200.
+Trabaja sobre este proyecto existente.
 Esta guía registra el estado del traspaso; verifica los cambios posteriores con
 Git y los informes antes de asumir que una prueba o publicación sigue vigente.
 
@@ -14,8 +15,8 @@ Git y los informes antes de asumir que una prueba o publicación sigue vigente.
   generadas deben identificarse como tales; no sustituyen una validación en Godot.
 - No generes APK, AAB ni exportación web automáticamente por cada cambio. Consulta
   antes, salvo autorización explícita vigente para esa entrega.
-- Autorización actual: «Continuar y crear APK subir al github», del 30 de octubre.
-  Permite esta compilación y publicación; no constituye permiso permanente para otras.
+- Autorización de la entrega ya completada: «Continuar y crear APK subir al github», del 30 de octubre.
+  La entrega 1.3.0 ya se completó. Consulta antes de otra compilación o publicación.
 - Conserva datos y cambios locales. No uses reset/clean/force-push para simplificar
   una entrega. No publiques claves, contraseñas, SDK, cachés ni capturas en el repo.
 
