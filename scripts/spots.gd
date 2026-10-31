@@ -12,6 +12,11 @@ extends RefCounted
 ## ~14 s, olas de 0,9 a 1,8 m), la guía de La FAE de Surf-Forecast y vídeos de
 ## los tres spots aportados por el autor.
 
+## Metros que la rompiente, el lineup y el cabo están mar adentro respecto a la
+## versión 1.5.0 (rompía a ~38 m). Así el recorrido de pie hasta la orilla es ~50 %
+## más largo sin cambiar la velocidad de la ola. beach.gd alarga el cabo lo mismo.
+const OFFSHORE := 45.0
+
 const LIST := [
 	{
 		"id": "montanita",
@@ -100,7 +105,8 @@ static func apply_to_wave(spot: Dictionary, wave: WaveModel) -> void:
 	wave.front_width = spot["front_width"]
 	wave.back_width = spot["back_width"]
 	wave.peel_speed = spot["peel_speed"]
-	wave.break_z = spot["break_z"]
+	wave.break_z = float(spot["break_z"]) - OFFSHORE
+	wave.start_z = wave.break_z - 44.0
 	wave.swell_amp = spot["swell"]
 	wave.set_count = spot.get("sets", 0)
 	wave.set_spacing = wave.speed * 14.0  # periodo típico del mar de fondo en Ecuador
@@ -113,4 +119,4 @@ static func apply_to_wave(spot: Dictionary, wave: WaveModel) -> void:
 
 ## Posición de espera: un poco hacia el hombro desde el pico.
 static func lineup(spot: Dictionary) -> Vector3:
-	return Vector3(1.0 * spot["dir"], 0.0, -43.0)
+	return Vector3(1.0 * spot["dir"], 0.0, -43.0 - OFFSHORE)

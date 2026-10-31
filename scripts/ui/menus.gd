@@ -645,7 +645,15 @@ func _refresh_settings() -> void:
 				UiKit.slider(0.5, 1.5, 0.05, Ajustes.steering_sensitivity, func(v): return "%d %%" % int(v * 100), func(v):
 					Ajustes.steering_sensitivity = v
 					_apply())))
-			b.add_child(UiKit.setting_row("Zona muerta del joystick", "Evita giros por pequeños movimientos o deriva del mando.",
+			b.add_child(UiKit.setting_row("Modo asistido", "Rema solo cuando llega la ola, da más margen para ponerse de pie y ayuda con el equilibrio.",
+				UiKit.toggle(Ajustes.assist, func(v):
+					Ajustes.assist = v
+					_apply())))
+			b.add_child(UiKit.setting_row("Respuesta del joystick táctil", "Suave: giros finos cerca del centro. Directa: responde igual en todo el recorrido.",
+				UiKit.option(Ajustes.STICK_RESPONSES, Ajustes.stick_response, func(i):
+					Ajustes.stick_response = i
+					_apply())))
+			b.add_child(UiKit.setting_row("Zona muerta del joystick","Evita giros por pequeños movimientos o deriva del mando.",
 				UiKit.slider(0.0, 0.4, 0.01, Ajustes.stick_deadzone, func(v): return "%d %%" % int(v * 100), func(v):
 					Ajustes.stick_deadzone = v
 					_apply())))

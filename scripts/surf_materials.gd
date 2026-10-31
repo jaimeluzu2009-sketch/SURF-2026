@@ -71,11 +71,13 @@ static func make(mat_name: String, col: Color, detail: bool) -> Material:
 			# The mesh still casts its silhouette onto the water.
 			m.disable_receive_shadows=true
 			# Piel con brillo sutil (agua) y un borde de luz que la separa del fondo.
-			m.roughness = 0.66
-			m.metallic_specular = 0.28
+			# Piel mojada al sol: algo más de brillo especular, rugosidad media y un
+			# borde de luz cálido (rim teñido con el albedo) en vez de reflejo plástico.
+			m.roughness = 0.6
+			m.metallic_specular = 0.32
 			m.rim_enabled = true
-			m.rim = 0.06
-			m.rim_tint = 0.6
+			m.rim = 0.10
+			m.rim_tint = 0.75
 			if detail:
 				m.normal_enabled = true
 				m.normal_texture = noise_tex("piel_n", 128, 0.3, 3, true, 0.5)
@@ -83,8 +85,8 @@ static func make(mat_name: String, col: Color, detail: bool) -> Material:
 				m.uv1_scale = Vector3(10, 10, 1)
 		"Pelo":
 			# Mechones: ruido estirado en una dirección.
-			m.roughness = 0.55
-			m.metallic_specular = 0.24
+			m.roughness = 0.62
+			m.metallic_specular = 0.22
 			if detail:
 				m.normal_enabled = true
 				m.normal_texture = noise_tex("pelo_n", 64, 0.35, 3, true, 6.0, Vector2(1, 4))
@@ -98,8 +100,8 @@ static func make(mat_name: String, col: Color, detail: bool) -> Material:
 			m.metallic_specular = 0.35
 		"Cubierta":
 			# Fibra de vidrio con parafina: brillo suave y manchas de cera más mates.
-			m.roughness = 0.22
-			m.metallic_specular = 0.55
+			m.roughness = 0.4
+			m.metallic_specular = 0.45
 			if detail:
 				m.roughness_texture = noise_tex("cera", 128, 0.06, 3, false)
 				m.roughness_texture_channel = BaseMaterial3D.TEXTURE_CHANNEL_RED
@@ -109,8 +111,9 @@ static func make(mat_name: String, col: Color, detail: bool) -> Material:
 				m.normal_scale = 0.2
 				m.uv1_scale = Vector3(3, 3, 1)
 		"Fondo":
-			m.roughness = 0.18
-			m.metallic_specular = 0.6
+			# Resina con lija fina: brilla, pero sin el reflejo de plástico duro.
+			m.roughness = 0.3
+			m.metallic_specular = 0.5
 		"Larguero":
 			m.roughness = 0.35
 		"Grip":

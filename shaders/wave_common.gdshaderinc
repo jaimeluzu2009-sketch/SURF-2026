@@ -33,7 +33,7 @@ float wave_height_terms(float x, float z, out vec4 terms) {
 	float peak = started * exp(-q * q);
 	float shoulder = 1.0 - 0.55 * sstep(20.0, 75.0, abs(x - peel_x));
 	float xm = -x * peel_dir; // en espejo: el cabo queda siempre en +xm
-	float lateral = sstep(-160.0, -120.0, xm) * sstep(45.0, 25.0, xm);
+	float lateral = sstep(-250.0, -205.0, xm) * sstep(45.0, 25.0, xm);
 	float a = amp * shoulder * lateral * (1.0 - 0.45 * broken) * (1.0 + 0.18 * peak);
 	float wf = front_width * (1.0 - 0.3 * peak) * (1.0 + 0.9 * broken);
 	float u = z - crest_z;

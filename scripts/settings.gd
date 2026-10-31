@@ -34,6 +34,12 @@ var camera_view := 0         ## 0 tercera persona, 1 primera persona, 2 frontal
 var camera_distance := 1.0    ## Distancia de seguimiento (0.75-1.35)
 var steering_sensitivity := 1.0
 var stick_deadzone := 0.15
+## Curva del joystick táctil: 0 suave, 1 normal, 2 directa (los toques pequeños giran menos).
+var stick_response := 1
+const STICK_RESPONSES := ["Suave", "Normal", "Directa"]
+## Modo asistido: remada automática al llegar la ola, ventana amplia para ponerse
+## de pie y ayuda de equilibrio. Por defecto activado en móvil.
+var assist := false
 var invert_weight := false
 var key_bindings: Dictionary = {}
 var paddle_toggle := false    ## Remar: true = un toque activa/desactiva, false = mantener
@@ -76,6 +82,7 @@ static func is_mobile() -> bool:
 
 
 func _defaults() -> void:
+	assist = is_mobile()
 	if is_mobile():
 		quality = 0
 		fps_limit = 30
@@ -180,6 +187,8 @@ func _load() -> void:
 	camera_distance = clampf(float(cfg.get_value("controles", "distancia_camara", 1.0)), 0.75, 1.35)
 	stick_deadzone = clampf(float(cfg.get_value("controles", "zona_muerta", 0.15)), 0.0, 0.4)
 	invert_weight = bool(cfg.get_value("controles", "invertir_peso", false))
+	stick_response = clampi(int(cfg.get_value("controles", "respuesta_joystick", 1)), 0, 2)
+	assist = bool(cfg.get_value("controles", "asistido", assist))
 	var saved_bindings: Variant = cfg.get_value("controles", "teclas", {})
 	key_bindings = saved_bindings if saved_bindings is Dictionary else {}
 	left_handed = cfg.get_value("controles", "zurdo", left_handed)
@@ -212,6 +221,8 @@ func _save() -> void:
 	cfg.set_value("controles", "distancia_camara", camera_distance)
 	cfg.set_value("controles", "zona_muerta", stick_deadzone)
 	cfg.set_value("controles", "invertir_peso", invert_weight)
+	cfg.set_value("controles", "respuesta_joystick", stick_response)
+	cfg.set_value("controles", "asistido", assist)
 	cfg.set_value("controles", "teclas", key_bindings)
 	cfg.set_value("controles", "remar_alternar", paddle_toggle)
 	cfg.set_value("accesibilidad", "escala", ui_scale)

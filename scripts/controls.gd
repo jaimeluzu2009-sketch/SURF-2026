@@ -102,7 +102,7 @@ func stick() -> Vector2:
 	for device in Input.get_connected_joypads():
 		var dpad := Vector2(float(Input.is_joy_button_pressed(device, JOY_BUTTON_DPAD_RIGHT)) - float(Input.is_joy_button_pressed(device, JOY_BUTTON_DPAD_LEFT)), float(Input.is_joy_button_pressed(device, JOY_BUTTON_DPAD_UP)) - float(Input.is_joy_button_pressed(device, JOY_BUTTON_DPAD_DOWN)))
 		if dpad.length_squared() > 0.0: analog = dpad.limit_length(1.0)
-	var touch := filter_stick(touch_stick)
+	var touch := touch_curve(filter_stick(touch_stick))
 	if touch.length_squared() > analog.length_squared():
 		analog = touch
 	var keys := Vector2(float(_key_down("surf_right")) - float(_key_down("surf_left")),
@@ -187,6 +187,12 @@ func filter_stick(raw: Vector2) -> Vector2:
 	if radius <= dead:
 		return Vector2.ZERO
 	return raw.normalized() * clampf((radius - dead) / (1.0 - dead), 0.0, 1.0)
+
+## Curva de respuesta del joystick táctil por eje: con el pulgar es difícil hacer
+## giros finos, así que el centro responde poco y el borde llega al máximo.
+func touch_curve(v: Vector2) -> Vector2:
+	var power: float = [1.9, 1.45, 1.0][clampi(Ajustes.stick_response, 0, 2)]
+	return Vector2(signf(v.x) * pow(absf(v.x), power), signf(v.y) * pow(absf(v.y), power))
 
 func _key_down(action: String) -> bool:
 	for event in InputMap.action_get_events(action):
@@ -285,6 +291,7 @@ func reset_controls() -> void:
 	Ajustes.camera_distance = 1.0
 	Ajustes.steering_sensitivity = 1.0
 	Ajustes.stick_deadzone = 0.15
+	Ajustes.stick_response = 1
 	Ajustes.invert_weight = false
 	Ajustes.touch_mode = 0
 	Ajustes.touch_opacity = 0.8

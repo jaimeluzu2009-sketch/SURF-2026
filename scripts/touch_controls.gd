@@ -169,6 +169,11 @@ func _input(event: InputEvent) -> void:
 
 
 func _update_stick() -> void:
+	# El joystick sigue al pulgar: si se sale del aro, el centro se arrastra detrás
+	# y volver un poco hacia el otro lado ya cambia el giro (sin recorrer todo el aro).
+	var off := _stick_pos - _stick_center
+	if off.length() > _r:
+		_stick_center = _stick_pos - off.normalized() * _r
 	var d := (_stick_pos - _stick_center) / _r
 	if d.length() > 1.0:
 		d = d.normalized()
@@ -205,6 +210,7 @@ func _draw() -> void:
 	var paddle_text := "IMPULSO" if riding else "REMAR"
 	var paddle_sub := "MANTÉN / SUELTA" if riding else ("ACTIVO" if paddle_on else "MANTENER")
 	if not riding and Ajustes.paddle_toggle: paddle_sub = "TOCA PARA PARAR" if paddle_on else "TOCA PARA REMAR"
+	if not riding and Ajustes.assist and not paddle_on: paddle_sub = "AUTO CON OLA"
 	if riding and impulse_charge > 0.0:
 		paddle_sub = "%d %%" % int(round(clampf(impulse_charge, 0, 1) * 100))
 		if release_ready(): paddle_sub = "SUELTA · " + paddle_sub

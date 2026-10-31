@@ -35,7 +35,7 @@ func prepare(spot: int, ratio: float, ahead: float, velocity: Vector2) -> void:
 	game.set_physics_process(true)
 	var w := game.wave
 	Spots.apply_to_wave(Spots.get_spot(spot),w)
-	w.start_z=-96.0
+	w.start_z=w.break_z-58.0  # mismo momento de la ola que antes de alejar la rompiente
 	w.time=15.0
 	w.update()
 	events.clear()

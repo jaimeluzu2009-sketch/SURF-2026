@@ -101,7 +101,15 @@ void fragment() {
 	// Cara de la ola: agua fina que deja pasar la luz (más verde y clara).
 	float face = sstep(0.25, 0.85, profile) * sstep(-0.5, 0.8, u);
 	float thin = sstep(0.6, 0.95, profile) * sstep(-0.3, 0.6, u);
-	col = mix(col, face_color, face * 0.46);
+	// Grosor: la base de la pared es agua gruesa y oscura; hacia el labio se aclara
+	// y deja pasar la luz (verde Pacífico). lift = altura relativa en la cara.
+	float lift = clamp((world_pos.y - tide) / max(amp, 0.35), 0.0, 1.15);
+	vec3 face_low = mix(deep_color, face_color, 0.42);
+	vec3 face_high = face_color * 1.18 + vec3(0.0, 0.025, 0.015);
+	col = mix(col, mix(face_low, face_high, sstep(0.15, 0.95, lift)), face * 0.6);
+	// Mirando en vertical se ve más el fondo del agua; en rasante, más el cielo.
+	float facing = clamp(dot(n_geo, -v), 0.0, 1.0);
+	col = mix(col, deep_color * 0.85, (1.0 - face) * sstep(0.55, 0.95, facing) * 0.25);
 	col = mix(col, shallow_color * 1.15, sstep(shore_z - 22.0, shore_z, world_pos.z));
 	// Reflejo del cielo según el ángulo (Fresnel): el mar lejano se funde con el horizonte.
 	float fres = pow(1.0 - clamp(dot(nw, -v), 0.0, 1.0), 5.0);
@@ -176,7 +184,8 @@ void fragment() {
 	ALBEDO = mix(col, foam_tint, foam);
 	// Luz que atraviesa la cresta cuando se mira hacia el sol (falso subsuperficial).
 	float back = clamp(dot(v, normalize(to_sun)) * 0.5 + 0.5, 0.0, 1.0);
-	EMISSION = face_color * thin * (0.08 + 0.22 * back * back) * (1.0 - foam);
+	// Más luz transmitida cerca del labio (agua fina) y casi nada en la base gruesa.
+	EMISSION = face_color * thin * (0.06 + 0.26 * back * back) * (0.45 + 0.75 * sstep(0.45, 1.0, lift)) * (1.0 - foam);
 	ROUGHNESS = mix(mix(0.19, 0.33, sstep(30.0, 260.0, dist)), 0.85, foam);
 	SPECULAR = 0.38;
 	METALLIC = 0.0;

@@ -73,7 +73,8 @@ func derived_at(t: float) -> PackedFloat32Array:
 
 ## Altura según dónde está la cresta: crece al llegar a la rompiente y se apaga en la orilla.
 func _shoal(cz: float) -> float:
-	return height * sstep(-100.0, -60.0, cz) * (1.0 - 0.75 * sstep(38.0, 64.0, cz))
+	# Crece al acercarse a la rompiente (relativo a break_z) y se apaga en la orilla (fija).
+	return height * sstep(break_z - 62.0, break_z - 22.0, cz) * (1.0 - 0.75 * sstep(38.0, 64.0, cz))
 
 
 static func sstep(a: float, b: float, x: float) -> float:
@@ -89,7 +90,7 @@ func height_at(x: float, z: float) -> float:
 	var peak := started * exp(-q * q)
 	var shoulder := 1.0 - 0.55 * sstep(20.0, 75.0, absf(x - peel_x))
 	var xm := -x * peel_dir  # en espejo: el cabo queda siempre en +xm
-	var lateral := sstep(-160.0, -120.0, xm) * sstep(45.0, 25.0, xm)
+	var lateral := sstep(-250.0, -205.0, xm) * sstep(45.0, 25.0, xm)
 	var a := amp * shoulder * lateral * (1.0 - 0.45 * broken) * (1.0 + 0.18 * peak)
 	var wf := front_width * (1.0 - 0.3 * peak) * (1.0 + 0.9 * broken)
 	var u := z - crest_z
@@ -144,7 +145,7 @@ func tube_section(x: float, t := -1.0) -> Dictionary:
 	var d := derived_at(t)
 	var ahead := (x - d[1]) * peel_dir
 	var envelope := sstep(-1.5, 0.0, ahead)
-	var strength := tube_strength * d[2] * sstep(0.9, 1.7, d[3]) * sstep(-30.0, -18.0, d[0])
+	var strength := tube_strength * d[2] * sstep(0.9, 1.7, d[3]) * sstep(break_z + 8.0, break_z + 20.0, d[0])
 	var radius := front_width * 0.82 * (0.96 + 0.04 * sin(ahead * 0.65 + t * 0.3))
 	var cz := d[0] + front_width * 0.84
 	# Sample floor at the same render instant without changing wave state.

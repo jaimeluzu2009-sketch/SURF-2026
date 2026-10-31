@@ -300,7 +300,7 @@ func update_state(surfer: Surfer, wave: WaveModel, score: ScoreKeeper, delta: fl
 			"trick":
 				p=score.trick_count(ch["kind"])/float(ch["value"])
 			"complete":
-				p = clampf((wave.crest_z + 37.0) / (Game.FINISH_Z + 37.0), 0.0, 1.0) if surfer.is_riding() else 0.0
+				p = clampf((wave.crest_z - wave.break_z) / (Game.FINISH_Z - wave.break_z), 0.0, 1.0) if surfer.is_riding() else 0.0
 		p = clampf(p, 0.0, 1.0)
 		var met: bool = done_before or (p >= 1.0 and ch["type"] != "complete")
 		(r["bar"] as ProgressBar).value = 1.0 if done_before else p

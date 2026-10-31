@@ -111,23 +111,31 @@ func _grid(node_name: String, x0: float, x1: float, z0: float, z1: float, nx: in
 			var z := lerpf(z0, z1, float(j) / nz)
 			row.append(Vector3(x, height.call(x, z), z))
 		pts.append(row)
+	# Normales suaves por vértice (diferencias centrales de la rejilla). Antes cada
+	# triángulo tenía su normal y su color propios y los cerros se veían facetados.
+	var nrms := []
+	var cols := []
+	for j in nz + 1:
+		var nrow := []
+		var crow := []
+		for i in nx + 1:
+			var px: Vector3 = pts[j][mini(i + 1, nx)] - pts[j][maxi(i - 1, 0)]
+			var pz: Vector3 = pts[mini(j + 1, nz)][i] - pts[maxi(j - 1, 0)][i]
+			var n_local := pz.cross(px).normalized()
+			nrow.append(n_local)
+			crow.append(color.call(pts[j][i], n_local))
+		nrms.append(nrow)
+		cols.append(crow)
 	for j in nz:
 		for i in nx:
-			var a: Vector3 = pts[j][i]
-			var b: Vector3 = pts[j][i + 1]
-			var c: Vector3 = pts[j + 1][i]
-			var d: Vector3 = pts[j + 1][i + 1]
-			for tri in [[a, b, c], [b, d, c]]:
-				var col_n: Vector3 = (tri[2] - tri[0]).cross(tri[1] - tri[0]).normalized()
-				var wt := [_w(tri[0]), _w(tri[1]), _w(tri[2])]
-				if mirror < 0.0:
-					wt = [wt[0], wt[2], wt[1]]  # el espejo invierte el sentido de las caras
-				var nrm: Vector3 = (wt[2] - wt[0]).cross(wt[1] - wt[0]).normalized()
-				for k in 3:
-					var p_local: Vector3 = tri[k] if mirror > 0.0 else tri[[0, 2, 1][k]]
-					st.set_color(color.call(p_local, col_n))
-					st.set_normal(nrm)
-					st.add_vertex(wt[k])
+			for tri in [[Vector2i(i, j), Vector2i(i + 1, j), Vector2i(i, j + 1)], [Vector2i(i + 1, j), Vector2i(i + 1, j + 1), Vector2i(i, j + 1)]]:
+				var order := [0, 1, 2] if mirror > 0.0 else [0, 2, 1]  # el espejo invierte el sentido de las caras
+				for k in order:
+					var g: Vector2i = tri[k]
+					var nl: Vector3 = nrms[g.y][g.x]
+					st.set_color(cols[g.y][g.x])
+					st.set_normal(Vector3(nl.x * mirror, nl.y, nl.z))
+					st.add_vertex(_w(pts[g.y][g.x]))
 	return _add_mesh(node_name, st.commit(), false, collide, kind)
 
 
@@ -147,14 +155,16 @@ func rocks_height(x: float, z: float) -> float:
 	var n := _noise.get_noise_2d(x * 2.0, z * 2.0) * 6.0 + _noise.get_noise_2d(x * 7.0, z * 7.0) * 1.5
 	var ridge := 0.0
 	var base := -4.0 + 8.0 * WaveModel.sstep(30.0, 48.0, x)
+	# El cabo se alarga mar adentro lo mismo que la rompiente (Spots.OFFSHORE).
+	var o := Spots.OFFSHORE
 	match scenery:
 		"point":
-			ridge = 30.0 * WaveModel.sstep(34.0, 95.0, x) * WaveModel.sstep(-32.0, 30.0, z)
+			ridge = 30.0 * WaveModel.sstep(34.0, 95.0, x) * WaveModel.sstep(-32.0 - o, 30.0, z)
 		"cliffs":
-			ridge = 26.0 * WaveModel.sstep(34.0, 70.0, x) * WaveModel.sstep(-28.0, 20.0, z)
+			ridge = 26.0 * WaveModel.sstep(34.0, 70.0, x) * WaveModel.sstep(-28.0 - o, 20.0, z)
 		"base":
 			# Plataforma rocosa baja y plana, casi a ras del agua.
-			ridge = 3.0 * WaveModel.sstep(34.0, 60.0, x) * WaveModel.sstep(-40.0, 0.0, z)
+			ridge = 3.0 * WaveModel.sstep(34.0, 60.0, x) * WaveModel.sstep(-40.0 - o, 0.0, z)
 			n *= 0.35
 	return maxf(base + ridge + n, sand_height(x, z) - 0.5)
 
@@ -184,7 +194,7 @@ func _rock_color(p: Vector3, nrm: Vector3) -> Color:
 
 
 func _build_rocks() -> void:
-	_grid("Point", 26.0, 170.0, -45.0, 160.0, 48, 60, rocks_height, _rock_color, true, Kind.ROCK)
+	_grid("Point", 26.0, 170.0, -45.0 - Spots.OFFSHORE, 160.0, 48, 74, rocks_height, _rock_color, true, Kind.ROCK)
 
 
 ## La Rinconada: acantilado seco que cierra la playa por detrás, con la meseta encima.

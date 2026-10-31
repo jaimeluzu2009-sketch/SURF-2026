@@ -376,3 +376,38 @@ y los controles táctiles se sienten difíciles (pidió opciones; aún sin elegi
   arrastre sobre botón desplaza y no lo activa; toque corto sí activa. PASÓ.
   Regresiones: custom-test OK, controls-test OK.
 - No probado en teléfono; NO se compiló ni publicó (APK público sigue 1.5.0).
+
+
+## 15. Joystick, modo asistido, ola más larga y pulido visual (local)
+
+Solicitado: opciones A+B de controles táctiles y el prompt de realismo/ola larga.
+- Joystick táctil: Controles.touch_curve (Ajustes.stick_response 0 Suave/1 Normal/
+  2 Directa, potencia 1.9/1.45/1.0; borde = giro máx). Solo afecta al táctil.
+  TouchControls._update_stick: el centro sigue al pulgar si sale del aro.
+- Modo asistido Ajustes.assist (guardado controles/asistido; por defecto ON en móvil,
+  OFF en PC; el bot y QA juegan siempre sin ayuda: Surfer.assisted()). Rema solo con
+  la ola cerca, endereza a la orilla, ventana de pararse amplia, mitad de
+  desequilibrio, más tiempo antes de caer, y retención en el bolsillo con
+  orientación suave si te quedas atrás. Botón REMAR muestra «AUTO CON OLA».
+- Ajustes > Controles: «Modo asistido» y «Respuesta del joystick táctil».
+- Prueba `--qa --assist-test [--spot=N]` (principiante simulado con entrada táctil
+  real): sin ayuda 0/9 olas, ~5 s de pie (se pasa por detrás de la cresta); con
+  ayuda 8/9 olas completas, ~17 s (antes de alargar). Una Rinconada cerró el tubo.
+- Ola más larga: Spots.OFFSHORE=45 m. break_z y lineup 45 m mar adentro, start_z =
+  break_z-44, shoaling y activación del tubo relativos a break_z, envolvente
+  lateral ampliada (-250/-205) en WaveModel y wave_common.gdshaderinc, cabo de
+  beach.gd alargado lo mismo, barra «Completa la ola» relativa a break_z.
+  tricks_test usa start_z=break_z-58. FINISH_Z y orilla sin cambios.
+- Medido con bot (mismo bot, 2 olas/spot): antes 17.1/17.5/17.9 s y 118 m;
+  después 25.7/26.6/27.1 s y 180-183 m (≈ +51 % tiempo, +54 % distancia).
+- Terreno: normales y colores suaves por vértice en Beach._grid (antes facetado).
+- Agua: grosor de la cara (base oscura, labio claro), tinte según ángulo de
+  vista y emisión transmitida mayor cerca del labio. Paridad GPU OK (máx 2.5 cm).
+- Materiales: piel rough .60/spec .32/rim .10; pelo .62; cubierta .40; fondo .30.
+- Capturas: capturas/ola_larga/antes_N, despues_N (solo alargado) y visual_N.
+- Pruebas OK: features, controls, styles, anatomy, tricks, school, tube-touch,
+  camera-motion, water-look, turns, wake, score, menu-scroll, assist, paridad y bot
+  3/3 spots. custom-test falló 1 vez en lote largo y pasó 4/4 aislado: vigilar.
+- NO hecho de lo pedido: vegetación/rocas nuevas, rediseño de malla del tubo,
+  posturas/silueta, revisión manual de primera persona, cielo/sombras por spot.
+  Sin medición en POCO. No se compiló APK ni se publicó (público sigue 1.5.0).

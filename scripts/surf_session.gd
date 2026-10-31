@@ -23,7 +23,7 @@ func next(wave: WaveModel) -> void:
 	wave.wind_chop = condition["wind"]
 	wave.swell_amp *= 0.75 + wave.wind_chop
 	wave.set_spacing = wave.speed * float(condition["period"])
-	wave.start_z = -82.0 - (14.0 if set_wave == 0 else 0.0)
+	wave.start_z = wave.break_z - 44.0 - (14.0 if set_wave == 0 else 0.0)
 	wave.reset()
 	number += 1
 func description() -> String:

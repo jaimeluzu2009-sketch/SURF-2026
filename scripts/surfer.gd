@@ -344,9 +344,19 @@ func touching_water() -> bool:
 
 # ------------------------------------------------------------------ tumbado
 
+## Modo asistido de Ajustes (el bot de pruebas juega siempre sin ayudas).
+func assisted() -> bool:
+	return Ajustes.assist and not Controles.bot_enabled
+
+
 func _do_prone(delta: float, s: Dictionary) -> void:
 	var st := Controles.stick()
 	paddling = Controles.paddling() or st.y > 0.5
+	if assisted() and wave.amp > 0.5 and global_position.z - wave.crest_z < 13.0 and s["broken"] < 0.4:
+		# Asistido: rema solo cuando la ola se acerca y endereza suave hacia la orilla.
+		paddling = true
+		if absf(st.x) < 0.2:
+			yaw = lerp_angle(yaw, 0.0, 1.0 - exp(-1.2 * delta))
 	yaw -= st.x * turn_rate_prone * delta * (1.0 if Controles.bot_enabled else Ajustes.steering_sensitivity)
 	var f := Vector2(sin(yaw), cos(yaw))
 	var n: Vector3 = s["normal"]
@@ -361,11 +371,13 @@ func _do_prone(delta: float, s: Dictionary) -> void:
 	animator.set_paddle_speed(1.0 + 0.4 * _paddle_amount)
 
 	# En la espuma no se ofrece pararse: te tumbaría al instante.
-	can_stand = s["u"] > -0.4 and s["profile"] > 0.22 and hvel.y > wave.speed * 0.6 and speed() > 3.2 \
+	var easy := assisted()
+	can_stand = s["u"] > -0.4 and s["profile"] > (0.15 if easy else 0.22) \
+		and hvel.y > wave.speed * (0.45 if easy else 0.6) and speed() > (2.6 if easy else 3.2) \
 		and s["broken"] < 0.4
-	_stand_grace = 0.14 if can_stand else maxf(0.0, _stand_grace - delta)
+	_stand_grace = (0.4 if easy else 0.14) if can_stand else maxf(0.0, _stand_grace - delta)
 	if Controles.take_stand():
-		_stand_buffer = 0.22
+		_stand_buffer = 0.6 if easy else 0.22
 	if _stand_buffer > 0.0:
 		_stand_buffer -= delta
 		if can_stand or (_stand_grace > 0.0 and s["broken"] < 0.4):
@@ -414,7 +426,16 @@ func _do_ride(delta: float, s: Dictionary, popup: bool) -> void:
 	var profile: float = s["profile"]
 	if face_assist > 0.0 and profile > 0.05:
 		var target_u: float = s["face_width"] * 0.9
-		acc.y += clampf((target_u - s["u"]) * 0.9, -3.0, 3.0) * face_assist * profile
+		if assisted():
+			# Asistido: la ola te retiene en el bolsillo aunque vayas recto por la pared,
+			# y si te quedas atrás la punta se orienta sola un poco hacia la playa.
+			var err: float = target_u - s["u"]
+			acc.y += clampf(err * 1.8, -6.0, 6.0) * profile
+			if err > 0.8 and absf(st.x) < 0.95:
+				var down := 0.0 if absf(wrapf(yaw, -PI, PI)) < 0.5 else signf(wrapf(yaw, -PI, PI))
+				yaw -= down * clampf(err * 0.25, 0.0, 0.7) * delta
+		else:
+			acc.y += clampf((target_u - s["u"]) * 0.9, -3.0, 3.0) * face_assist * profile
 	if trim > 0.0:
 		acc += f * 1.1 * trim * clampf(profile * 2.0, 0.0, 1.0)
 	hvel += acc * delta
@@ -449,16 +470,19 @@ func _do_ride(delta: float, s: Dictionary, popup: bool) -> void:
 	var slope_along := -(n.x * f.x + n.z * f.y) / maxf(n.y, 0.2)
 	var stall := clampf(1.0 - spd / 3.0, 0.0, 1.0)
 	var chop := _noise.get_noise_1d(_state_time * 1.7) * (0.7 + wave.wind_chop)
-	balance += (balance_slope * -slope_along * clampf(spd / 6.0, 0.4, 1.2) - balance_stall * stall
-		+ balance_chop * chop + balance_trim * trim) * delta
-	balance -= balance * 0.9 * delta
+	var easy := assisted()
+	var drift := (balance_slope * -slope_along * clampf(spd / 6.0, 0.4, 1.2) - balance_stall * stall
+		+ balance_chop * chop + balance_trim * trim)
+	# Asistido: la mitad de desequilibrio y el cuerpo se recentra solo más rápido.
+	balance += drift * (0.5 if easy else 1.0) * delta
+	balance -= balance * (1.8 if easy else 0.9) * delta
 	balance = clampf(balance, -1.4, 1.4)
 
 	if absf(balance) > 1.0:
 		_danger += delta
 	else:
 		_danger = maxf(0.0, _danger - delta * 2.0)
-	if _danger > 0.3:
+	if _danger > (0.6 if easy else 0.3):
 		if balance > 0.0:
 			_wipeout("¡Al agua!", "Clavaste la punta. Echa el peso atrás (%s / joystick %s)." % [Controles.key_label("surf_up" if Ajustes.invert_weight else "surf_down"), "arriba" if Ajustes.invert_weight else "abajo"])
 		else:
@@ -468,14 +492,14 @@ func _do_ride(delta: float, s: Dictionary, popup: bool) -> void:
 		_foam_time += delta
 	else:
 		_foam_time = maxf(0.0, _foam_time - delta)
-	if _foam_time > 0.35:
+	if _foam_time > (0.6 if easy else 0.35):
 		_wipeout("¡Al agua!", "Te alcanzó la espuma. Corre por delante de donde rompe la ola.")
 		return
 	if absf(carve) > 0.75 and spd < 2.2:
 		_rail_time += delta
 	else:
 		_rail_time = 0.0
-	if _rail_time > 0.6:
+	if _rail_time > (1.0 if easy else 0.6):
 		_wipeout("¡Al agua!", "Giro demasiado cerrado sin velocidad: se te clavó el canto.")
 		return
 	if s["u"] < -3.0 and profile < 0.5:
