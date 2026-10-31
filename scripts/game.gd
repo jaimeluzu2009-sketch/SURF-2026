@@ -109,6 +109,8 @@ func _ready() -> void:
 		bot.name = "Bot"
 		bot.setup(self, args)
 		add_child(bot)
+	elif "--menu-scroll-test" in args:
+		add_child(load("res://tests/menu_scroll_test.gd").new())
 	elif "--school-test" in args:
 		add_child(load("res://tests/school_test.gd").new())
 	elif "--tube-touch-test" in args:

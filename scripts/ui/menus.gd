@@ -417,6 +417,7 @@ func _build_career() -> void:
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	col.add_child(scroll)
+	TouchScroll.attach(scroll)
 	_career_body = VBoxContainer.new()
 	_career_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_career_body.add_theme_constant_override("separation", 12)
@@ -565,6 +566,7 @@ func _build_settings() -> void:
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	col.add_child(scroll)
+	TouchScroll.attach(scroll)
 	var wrap := UiKit.panel(Color(UiKit.NIGHT, 0.7), 16, Color(UiKit.SAND, 0.08), 22)
 	wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(wrap)
@@ -867,6 +869,7 @@ func _build_school() -> void:
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	col.add_child(scroll)
+	TouchScroll.attach(scroll)
 	_school_body = VBoxContainer.new()
 	_school_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_school_body.add_theme_constant_override("separation",8)

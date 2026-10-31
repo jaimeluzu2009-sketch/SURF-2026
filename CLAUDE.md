@@ -360,3 +360,19 @@ El usuario autorizó compilar y publicar 1.5.0 con todo lo de las secciones 10�
 - Pendiente: que el usuario instale 1.5.0 en el POCO F7 Pro (debería actualizar
   sobre 1.4.0 sin desinstalar) y reporte escuela, cámaras, botones, tubo y FPS.
   Futuras compilaciones/publicaciones requieren nueva autorización.
+
+
+## 14. Scroll táctil en menús (local, posterior a 1.5.0)
+
+Reporte del usuario en su POCO con 1.5.0: en los menús no se podía bajar deslizando,
+y los controles táctiles se sienten difíciles (pidió opciones; aún sin elegir).
+- Nuevo `scripts/ui/touch_scroll.gd` (TouchScroll.attach): arrastre vertical con
+  dedo aunque empiece sobre botón/panel/deslizador; al pasar 14 px cancela la
+  pulsación (movimiento + soltar fuera inyectados) y traga el soltar real del dedo y
+  de su ratón emulado; inercia. Enganchado en Carrera, Ajustes, Escuela y Personalizar.
+- UiKit.option: OptionButton abre al SOLTAR (antes al tocar abría el desplegable y
+  se tragaba el arrastre: causa principal en Ajustes).
+- Prueba nueva `--qa --menu-scroll-test` (con ventana; 1600x720 simula 20:9):
+  arrastre sobre botón desplaza y no lo activa; toque corto sí activa. PASÓ.
+  Regresiones: custom-test OK, controls-test OK.
+- No probado en teléfono; NO se compiló ni publicó (APK público sigue 1.5.0).

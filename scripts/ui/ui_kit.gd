@@ -263,6 +263,9 @@ static func option(items: Array, selected: int, on_select: Callable) -> OptionBu
 		ob.add_item(str(it))
 	ob.select(clampi(selected, 0, items.size() - 1))
 	ob.custom_minimum_size = Vector2(230, 46)
+	# Abre la lista al soltar: si abriera al tocar, deslizar el menú sobre un
+	# selector abría el desplegable y se tragaba el arrastre en el móvil.
+	ob.action_mode = BaseButton.ACTION_MODE_BUTTON_RELEASE
 	ob.item_selected.connect(on_select)
 	ob.get_popup().add_theme_font_size_override("font_size", 22)
 	return ob

@@ -39,6 +39,7 @@ func _ready() -> void:
 	_scroll.follow_focus=true
 	_scroll.scroll_deadzone=12
 	add_child(_scroll)
+	TouchScroll.attach(_scroll)
 	_body=VBoxContainer.new()
 	_body.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	_body.add_theme_constant_override("separation",14)
