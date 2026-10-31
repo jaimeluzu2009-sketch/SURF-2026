@@ -125,12 +125,16 @@ func finish_bonus() -> void:
 	event.emit("OLA COMPLETADA", 1000)
 
 
-func tube_step(delta: float, inside: bool, depth := 0.0) -> void:
+## Tubo: no basta con estar dentro. Puntúa profundidad (0 boca - 1 fondo), control
+## (equilibrio centrado) y velocidad respecto a la ola; quedarse quieto y torcido
+## apenas suma. La mayor parte se cobra al SALIR (tube_exit_bonus).
+func tube_step(delta: float, inside: bool, depth := 0.0, control := 1.0, speed_ratio := 1.0) -> void:
 	if not inside:
 		return
-	_deep_pending+=delta*clampf(depth,0.0,1.0)*75.0
+	var quality := clampf(depth,0.0,1.0)*clampf(control,0.0,1.0)*clampf(speed_ratio,0.4,1.2)
+	_deep_pending+=delta*quality*110.0
 	tube_time += delta
-	_tube_acc += delta * 120.0
+	_tube_acc += delta * (30.0+70.0*quality)
 	var pts := int(_tube_acc)
 	score += pts
 	_tube_acc -= pts
@@ -144,7 +148,7 @@ func tube_exit_bonus(duration: float) -> void:
 
 
 func award_maneuver(result: Dictionary) -> void:
-	var kinds := {"carving":["CARVING",1.0],"bottom_turn":["BOTTOM TURN",1.15],"cutback":["CUTBACK",1.55],
+	var kinds := {"carving":["CARVING",1.0],"bottom_turn":["BOTTOM TURN",1.15],"top_turn":["TOP TURN",1.35],"cutback":["CUTBACK",1.55],
 		"snap":["SNAP",1.5],"floater":["FLOATER",1.7],"air":["AÉREO",2.0],"air180":["AÉREO 180",2.7],
 		"grab_air":["AÉREO CON AGARRE",2.5],"grab180":["AGARRE 180",3.2],"tube_rail":["CANTO + SALIDA",0.8],"hand_drag":["MANO + SALIDA",1.1]}
 	var kind: String = result.get("kind","")
@@ -159,4 +163,6 @@ func award_maneuver(result: Dictionary) -> void:
 	trick_counts[kind]=int(trick_counts.get(kind,0))+1
 	var label: String = kinds[kind][0]
 	if result.has("landing"): label+=" · "+str(result.landing)
+	# Explica la penalización sin texto largo: practicar sigue puntuando, menos.
+	if _repeats>0: label+=" · REPETIDO %d%%" % int(round(repeat_factor*100.0))
 	_turn(float(result.speed),label,float(kinds[kind][1])*repeat_factor*flow_factor*clampf(float(result.get("quality",1.0)),0.5,1.25))

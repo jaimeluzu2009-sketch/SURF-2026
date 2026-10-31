@@ -411,3 +411,36 @@ Solicitado: opciones A+B de controles táctiles y el prompt de realismo/ola larg
 - NO hecho de lo pedido: vegetación/rocas nuevas, rediseño de malla del tubo,
   posturas/silueta, revisión manual de primera persona, cielo/sombras por spot.
   Sin medición en POCO. No se compiló APK ni se publicó (público sigue 1.5.0).
+
+
+## 16. Zona de remada, jugabilidad y academia (local)
+
+- Bug corregido: tumbado se podía remar hasta la arena. Game._check_paddle_zone:
+  fuera de PADDLE_ZONE (40 m lateral / 28 m hacia playa del lineup) avisa y a 1,5 s
+  vuelve al lineup. Prueba `--qa --paddle-zone-test`.
+- Referencias revisadas (reseñas/fichas, no manuales oficiales; no se jugaron):
+  True Surf (física táctil en tiempo real, bombeo/stall), Barton Lynch (condiciones
+  configurables, retos de trucos), Kelly Slater's Pro Surfer (medidor de equilibrio
+  en tubo, trucos de cara para enlazar), Endless Summer (ola de aprendizaje,
+  variedad de rompientes, botón para volver al pico).
+- Bombeo: ganancia × energía de la ola (cero cerca de 2,3× velocidad de ola, más en
+  pared alta); aviso si no rinde. Métrica `--qa --surf-metrics`: ritmo 0,32 s antes
+  12.0/7.6/11.7 m/s → 10.7/7.2/10.1; spam ≤ ritmo; sin bombear 9.8/7.0/9.3.
+- SurfTurns: nuevo top_turn (arranca ratio ≤0,45 con ≥40° y bajada); bottom turn
+  cuenta subidas fuertes y ya no se descarta si la subida gasta la velocidad <3.
+- Recepción: SurfTricks.landing_failure da el motivo (rotación, peso, trayectoria,
+  espuma, fuera de pared, caída dura). Tolerancias iguales a antes.
+- Tubo: puntos por segundo 30+70×(profundidad×control×velocidad) y pendiente de
+  salida ×110; quedarse dentro sin control apenas suma. tricks_test actualizado.
+- Puntuación: etiqueta «REPETIDO n %» al penalizar repetición; TOP TURN ×1,35.
+- Academia (lecciones 8-12, índices 7-11, ACADEMY_FIRST=7): bombeo (2 válidos),
+  bottom turn, top turn/cutback/snap, impulso y recepción, tubo (fuerza labio
+  hueco y ola ≥2,1 m de práctica, avisado). Aprobación solo por señales reales;
+  empiezan a 8 m del labio. `--qa --academy-test [--spot=N]`: pasa en 3 spots y
+  pasivo (solo TRUCO) no aprueba. Capturas capturas/academia/.
+- Todas las regresiones OK (features, controls, turns, wake, styles, tricks,
+  school, tube-touch, camera-motion, custom, assist, paddle-zone, menu-scroll,
+  score) y bot 3/3 (25.7/26.6/27.1 s).
+- Pendiente real: prueba humana de comodidad/diversión, calibrar en POCO, FPS en
+  móvil, mejoras de animación por maniobra, indicador visible de modo asistido.
+  No se compiló ni publicó.

@@ -109,6 +109,12 @@ func _ready() -> void:
 		bot.name = "Bot"
 		bot.setup(self, args)
 		add_child(bot)
+	elif "--academy-test" in args:
+		add_child(load("res://tests/academy_test.gd").new())
+	elif "--surf-metrics" in args:
+		add_child(load("res://tests/surf_metrics_test.gd").new())
+	elif "--paddle-zone-test" in args:
+		add_child(load("res://tests/paddle_zone_test.gd").new())
 	elif "--assist-test" in args:
 		add_child(load("res://tests/assist_test.gd").new())
 	elif "--menu-scroll-test" in args:
@@ -300,6 +306,7 @@ func _physics_process(delta: float) -> void:
 			wave.reset()
 		return
 	if mode==Mode.PLAY: score.tick(delta)
+	_check_paddle_zone(delta)
 	if surfer.state == Surfer.State.PRONE and _missed_timer < 0.0 \
 			and wave.crest_z > surfer.global_position.z + 10.0:
 		if school and school.active:
@@ -318,10 +325,33 @@ func _physics_process(delta: float) -> void:
 	if surfer.state == Surfer.State.RIDING:
 		var ahead := (surfer.global_position.x - wave.peel_x) * wave.peel_dir
 		score.step(delta, surfer.speed(), surfer.carve, ahead if wave.started > 0.5 else 99.0, false, false)
-		score.tube_step(delta, surfer.in_tube,clampf((6.8-ahead)/6.8,0.0,1.0))
+		score.tube_step(delta, surfer.in_tube, clampf((6.8-ahead)/6.8,0.0,1.0),
+			1.0 - clampf(absf(surfer.balance), 0.0, 1.0), surfer.speed() / maxf(wave.speed, 1.0))
 		if wave.crest_z > FINISH_Z:
 			surfer.finish_success()
 			score.finish_bonus()
+
+
+## Tumbado solo se puede remar por la zona del pico: antes se podía remar sin ola
+## hasta la arena. Fuera de la zona avisa y, si sigue fuera, vuelve al lineup.
+const PADDLE_ZONE := Vector2(40.0, 28.0)  ## Distancia lateral y hacia la playa permitida.
+var _out_of_zone := 0.0
+
+func _check_paddle_zone(delta: float) -> void:
+	if surfer.state != Surfer.State.PRONE or mode != Mode.PLAY:
+		_out_of_zone = 0.0
+		return
+	var p := surfer.global_position
+	var out := p.z - lineup.z > PADDLE_ZONE.y or absf(p.x - lineup.x) > PADDLE_ZONE.x
+	if not out:
+		_out_of_zone = 0.0
+		return
+	if _out_of_zone == 0.0:
+		hud.show_hint("Te alejas del pico: sin ola no se llega a la orilla. Volviendo al lineup...", 2.0)
+	_out_of_zone += delta
+	if _out_of_zone > 1.5:
+		_out_of_zone = 0.0
+		_place_surfer_at_lineup()
 
 
 func _process(delta: float) -> void:

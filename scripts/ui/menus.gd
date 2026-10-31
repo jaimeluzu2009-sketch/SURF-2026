@@ -871,7 +871,7 @@ func _build_school() -> void:
 	col.add_theme_constant_override("separation",12)
 	_margin_box(screen).add_child(col)
 	_header(col,"APRENDE SURFEANDO","ESCUELA DEL PACÍFICO")
-	var description := UiKit.label("MI PRIMERA OLA · siete lecciones · sin penalizaciones ni cambios en récords de carrera.",20,UiKit.TEXT_DIM)
+	var description := UiKit.label("MI PRIMERA OLA (1-7) y ACADEMIA (8-12): bombeo, giros, impulso y tubo · sin penalizaciones ni cambios en récords de carrera.",20,UiKit.TEXT_DIM)
 	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(description)
 	var scroll := ScrollContainer.new()

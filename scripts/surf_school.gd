@@ -8,7 +8,15 @@ const LESSONS := [
 	{"title":"Equilibrio", "task":"Mantén el equilibrio durante 4 segundos seguidos.", "hint":"Reparte el peso adelante/atrás con suavidad."},
 	{"title":"Giro amplio", "task":"Traza un giro amplio y avanza sin caer.", "hint":"Gira suavemente; mantener todo el giro puede clavar el canto."},
 	{"title":"Tu primera ola", "task":"Toma la ola y recórrela sin caerte.", "hint":"Combina remada, incorporación, equilibrio y giros."},
+	# Academia: cada ejercicio empieza ya de pie y solo se aprueba con la acción real
+	# (señales del surfista y del sistema de trucos), nunca por pulsar un botón.
+	{"title":"Academia · Bombeo", "task":"Gana velocidad con 2 bombeos válidos en la pared.", "hint":"Alterna peso adelante/atrás a ritmo (unos 0,3 s) mientras recorres la ola."},
+	{"title":"Academia · Bottom turn", "task":"Baja a la base de la ola y gira de vuelta hacia arriba.", "hint":"Desde abajo, gira hacia la cresta con el joystick mantenido."},
+	{"title":"Academia · Top turn o cutback", "task":"Arriba en la pared, gira de vuelta hacia abajo (o hacia la espuma).", "hint":"Sube cerca de la cresta y gira con decisión hacia la base."},
+	{"title":"Academia · Impulso y recepción", "task":"Despega desde el labio y aterriza limpio.", "hint":"Mantén IMPULSO, suéltalo cerca de la cresta con velocidad y suelta el giro para alinear."},
+	{"title":"Academia · Tubo", "task":"Mantén la línea dentro del tubo y sal por la boca de pie (ola de práctica de 2,1 m o más).", "hint":"Quédate en el centro de la pared; si vas lento, bombea; con la mano frenas y entras más hondo."},
 ]
+const ACADEMY_FIRST := 7
 var game: Game
 var active := false
 var lesson := 0
@@ -43,6 +51,17 @@ func setup(owner_game: Game) -> void:
 	persist = Ajustes.persist
 	if persist: load_progress()
 	_build_ui()
+	game.surfer.maneuver_completed.connect(_on_maneuver)
+	game.surfer.tube_exit.connect(func(_d): if active and lesson == 11 and not finished: complete())
+
+
+func _on_maneuver(result: Dictionary) -> void:
+	if not active or finished: return
+	var kind: String = result.get("kind","")
+	match lesson:
+		8: if kind == "bottom_turn": complete()
+		9: if kind in ["top_turn","cutback","snap"]: complete()
+		10: if kind in ["air","air180","grab_air","grab180"]: complete()
 
 func progress_path() -> String:
 	return "user://school-test.cfg" if "--qa" in OS.get_cmdline_user_args() else "user://surf_school.cfg"
@@ -98,11 +117,32 @@ func prepare_attempt() -> void:
 		w.update()
 		s.reset_to(Vector3(game.lineup.x,w.height_at(game.lineup.x,game.lineup.z),game.lineup.z),0.0)
 		if lesson == 3: s.hvel = Vector2(0,w.speed*0.95)
-	elif lesson in [4,5]:
+	elif lesson == 11:
+		# Práctica de tubo en cualquier spot: se activa el labio hueco solo en este ejercicio.
+		w.tube_strength = 1.0
+		# Ola de práctica: en spots pequeños (La FAE) la altura no forma tubo, así que
+		# este ejercicio usa al menos 2,1 m. Se avisa en la tarea; no afecta a carrera.
+		w.height = maxf(w.height, 2.1)
 		w.time = 15.0
 		w.update()
-		var x := w.peel_x + w.peel_dir*3.0
-		var z := w.crest_z + w.front_width*0.9
+		# Dentro del tubo con buena velocidad: hay que mantener la línea y salir.
+		var tx := w.peel_x + w.peel_dir*1.5
+		var sec := w.tube_section(tx)
+		var tz: float = sec["z"]
+		s.reset_to(Vector3(tx,w.height_at(tx,tz)+Surfer.DECK_RIDE,tz),w.peel_dir*PI*0.5)
+		s.state = Surfer.State.RIDING
+		s.hvel = Vector2(w.peel_dir*9.0,5.0)
+		s.animator.jump_to("ride")
+		s.reset_physics_interpolation()
+	elif lesson in [4,5] or lesson >= ACADEMY_FIRST:
+		w.time = 15.0
+		w.update()
+		# La academia empieza lejos del labio: en La Rinconada a 3 m ya estarías en el tubo.
+		var x := w.peel_x + w.peel_dir*(8.0 if lesson >= ACADEMY_FIRST else 3.0)
+		var ratio := 0.9
+		if lesson == 8: ratio = 1.4   # bottom turn: empezar abajo
+		elif lesson == 9: ratio = 0.35  # top turn: empezar arriba
+		var z := w.crest_z + w.front_width*ratio
 		s.reset_to(Vector3(x,w.height_at(x,z)+Surfer.DECK_RIDE,z),w.peel_dir*PI*0.5)
 		s.state = Surfer.State.RIDING
 		s.hvel = Vector2(w.peel_dir*6.8,w.speed)
@@ -162,6 +202,11 @@ func _physics_process(delta: float) -> void:
 			if _turn>=0.45 and _distance>=4.0: complete()
 		6:
 			progress = clampf(s.ride_distance/100.0,0,0.95)
+		7:
+			progress = clampf(s.tricks.pump_count/2.0,0,1)
+			if s.tricks.pump_count >= 2: complete()
+		11:
+			progress = 0.5 if s.in_tube else progress
 	_refresh_text()
 
 func ride_ended(success: bool, title: String, detail: String) -> void:
@@ -251,7 +296,7 @@ func _build_ui() -> void:
 	body.custom_minimum_size.x = 590
 	body.add_theme_constant_override("separation",12)
 	panel.add_child(body)
-	body.add_child(UiKit.kicker("ESCUELA DEL PACÍFICO · MI PRIMERA OLA"))
+	body.add_child(UiKit.kicker("ESCUELA DEL PACÍFICO · MI PRIMERA OLA Y ACADEMIA"))
 	_result_title = UiKit.headline("",54)
 	body.add_child(_result_title)
 	_result_detail = UiKit.label("",20,UiKit.TEXT_DIM)

@@ -104,10 +104,18 @@ func surface(delta: float, sample: Dictionary, stick: Vector2) -> bool:
 	var phase := 1 if stick.y>0.5 else (-1 if stick.y< -0.5 else 0)
 	if phase!=0 and phase!=_pump_phase:
 		if _pump_phase!=0 and _pump_clock>=0.18 and _pump_clock<=0.9 and _pump_travel>1.1 and clean and s.speed()>3.0:
-			s.hvel+=s.hvel.normalized()*clampf(0.8-(s.speed()-6.0)*0.10,0.10,0.9)
-			pump_count+=1
-			impact=0.12
-			s.hint.emit("BOMBEO · impulso ganado")
+			# La energía sale de la ola: rinde más en la pared alta (perfil) y cerca del
+			# bolsillo, y se agota al acercarse al límite que esa ola puede dar.
+			var limit: float = s.wave.speed*2.3
+			var energy := clampf(1.0-s.speed()/limit,0.0,1.0)*clampf(float(sample.profile)*1.4,0.3,1.0)
+			var gain := clampf(0.8-(s.speed()-6.0)*0.10,0.10,0.9)*energy
+			if gain>0.03:
+				s.hvel+=s.hvel.normalized()*gain
+				pump_count+=1
+				impact=0.12
+				s.hint.emit("BOMBEO · impulso ganado")
+			else:
+				s.hint.emit("BOMBEO sin efecto: ya vas al máximo de esta ola o estás fuera de la pared")
 		_pump_clock=0.0
 		_pump_travel=0.0
 		_pump_phase=phase
@@ -235,8 +243,9 @@ func land(sample: Dictionary) -> void:
 	var course := _takeoff_yaw+(PI if _takeoff_switch else 0.0)
 	var course_error := absf(wrapf(atan2(s.hvel.x,s.hvel.y)-course,-PI,PI))
 	var n: Vector3 = sample.normal
-	if course_error>0.72 or error>deg_to_rad(34.0) or absf(air_pitch)>0.34 or n.y<0.42 or float(sample.profile)<0.12 or float(sample.broken)>0.55 or air_vy< -8.0:
-		s._wipeout("Aterrizaje fallido","Alinea la tabla a 0° o 180°, centra el peso y busca la cara limpia.")
+	var why := landing_failure(error,course_error,n,sample)
+	if why!="":
+		s._wipeout("Aterrizaje fallido",why)
 		return
 	var half_turn := absf(air_spin)>PI*0.5
 	s.yaw=_takeoff_yaw+(signf(air_spin)*PI if half_turn else 0.0)
@@ -261,6 +270,23 @@ func land(sample: Dictionary) -> void:
 	s.hint.emit("ATERRIZAJE %s%s" % [last_landing," · SWITCH" if s.switch_stance else ""])
 	_turn_lock=0.28
 	_float_exit=false
+
+## Motivo concreto de una recepción fallida ("" si es válida). Tolerancias: ±34° de
+## rotación respecto a 0°/180°, peso ±0.34, trayectoria ±41° respecto al despegue.
+func landing_failure(error: float, course_error: float, n: Vector3, sample: Dictionary) -> String:
+	if error>deg_to_rad(34.0):
+		return "Caíste girado %d° respecto a 0°/180°: suelta el giro antes para alinear la tabla." % int(rad_to_deg(error))
+	if absf(air_pitch)>0.34:
+		return "Peso muy %s al caer: centra el joystick antes de tocar el agua." % ("adelante" if air_pitch>0.0 else "atrás")
+	if course_error>0.72:
+		return "La tabla no apuntaba hacia donde ibas: despega con más velocidad en línea recta."
+	if float(sample.broken)>0.55:
+		return "Caíste en la espuma: despega antes del punto de rotura para volver a la pared limpia."
+	if float(sample.profile)<0.12 or n.y<0.42:
+		return "Caíste fuera de la pared (agua plana o demasiado vertical): busca el labio con menos altura."
+	if air_vy< -8.0:
+		return "Caída demasiado alta y dura: carga menos IMPULSO."
+	return ""
 
 func start_floater() -> void:
 	var s := surfer()
