@@ -443,4 +443,16 @@ Solicitado: opciones A+B de controles táctiles y el prompt de realismo/ola larg
   score) y bot 3/3 (25.7/26.6/27.1 s).
 - Pendiente real: prueba humana de comodidad/diversión, calibrar en POCO, FPS en
   móvil, mejoras de animación por maniobra, indicador visible de modo asistido.
-  No se compiló ni publicó.
+
+
+## 17. Release 1.5.1 publicada — APK público actual
+
+Autorizada por el usuario («Si genera APK en github»). Incluye secciones 14-16.
+- version/name 1.5.1, version/code 9. Commit de la release `d08d69ed269472e86b5ef330947a835934df47ed`.
+- Release: https://github.com/jaimeluzu2009-sketch/SURF-2026/releases/tag/v1.5.1
+- APK: https://github.com/jaimeluzu2009-sketch/SURF-2026/releases/download/v1.5.1/barrels-1.5.1.apk
+  (HTTP 200). 234109038 bytes, SHA-256 `84dfc098d39278102ea60240d6a5e1ce82021ada3635d258c04393259047c151`.
+- Verificado: certificado esperado (misma firma), zipalign 16 KB OK, minSdk 24,
+  targetSdk 36, ABIs arm64/armeabi-v7a/x86_64. Notas: RELEASE_1.5.1.md. Solo APK.
+- Pendiente: instalación y prueba en POCO F7 Pro por el usuario. Futuras
+  compilaciones/publicaciones requieren nueva autorización.
