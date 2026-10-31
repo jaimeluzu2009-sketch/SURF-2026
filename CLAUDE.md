@@ -342,3 +342,21 @@ que describían todo el tutorial como pendiente o toda la malla oculta en primer
 
 Regla del usuario vigente: al finalizar cada cambio, actualizar esta guía con
 lo implementado, las pruebas realmente ejecutadas y los pendientes.
+
+
+## 13. Release 1.5.0 publicada (31 oct 2026) — sustituye a 1.4.0 como APK público
+
+El usuario autorizó compilar y publicar 1.5.0 con todo lo de las secciones 10–12.
+- export_presets: version/name 1.5.0, version/code 8 (ambos presets Android).
+- Commit de la release: `afe5cb5cfca77598815ace9c9c4460509f683c82` (main, empujado).
+- Release: https://github.com/jaimeluzu2009-sketch/SURF-2026/releases/tag/v1.5.0
+- APK: https://github.com/jaimeluzu2009-sketch/SURF-2026/releases/download/v1.5.0/barrels-1.5.0.apk
+  (HTTP 200 comprobado). 234098009 bytes, SHA-256
+  `dcbd1d7d4c2d265e7dffdb5c9816acc1f59dcc81d37c764d459c6e77d36d9d5c`.
+- Verificado: certificado SHA-256 esperado (misma firma que 1.4.0), zipalign -c -P 16 4
+  OK, paquete ec.barrels.surf, minSdk 24, targetSdk 36, ABIs arm64/armeabi-v7a/x86_64.
+- Notas: RELEASE_1.5.0.md. Solo APK; no se generó AAB ni exportación web.
+- No se re-ejecutaron las pruebas QA para esta compilación; valen las de secciones 10–12.
+- Pendiente: que el usuario instale 1.5.0 en el POCO F7 Pro (debería actualizar
+  sobre 1.4.0 sin desinstalar) y reporte escuela, cámaras, botones, tubo y FPS.
+  Futuras compilaciones/publicaciones requieren nueva autorización.
