@@ -7,10 +7,14 @@ extends Control
 const MOUSE_ID := -1
 const NONE := -100
 
+var _camera_button: Button
 var active := true
 var stand_ready := false
 var riding := false
 var impulse_charge := 0.0
+var launch_ready := false
+var tube_context := false
+var airborne_context := false
 var trick_ready := false
 var _stand_id := NONE
 
@@ -32,11 +36,18 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	Ajustes.changed.connect(_refresh)
 	resized.connect(_layout)
+	_camera_button = UiKit.button("CÁMARA", false, 110)
+	add_child(_camera_button)
+	_camera_button.pressed.connect(func():
+		var camera := get_viewport().get_camera_3d() as CameraRig
+		if camera: camera.cycle_view())
 	_refresh()
 	_layout()
 
 
 func _refresh() -> void:
+	self_modulate.a = maxf(0.85, Ajustes.touch_opacity) if Ajustes.high_contrast else Ajustes.touch_opacity
+	if _camera_button: _camera_button.modulate.a = self_modulate.a
 	visible = Ajustes.touch_enabled()
 	_layout()
 	if not visible:
@@ -44,6 +55,9 @@ func _refresh() -> void:
 
 
 func _layout() -> void:
+	if _camera_button:
+		_camera_button.position = Vector2(size.x * 0.5 + 100.0, 18.0)
+		_camera_button.size = Vector2(132, 48)
 	var s := size
 	var short := minf(s.x, s.y)
 	_r = clampf(short * 0.12, 48.0, 120.0) * Ajustes.touch_size
@@ -119,6 +133,8 @@ func _input(event: InputEvent) -> void:
 	else:
 		return
 	pos = get_global_transform_with_canvas().affine_inverse() * pos
+	if _camera_button and _camera_button.get_rect().has_point(pos) and is_press and pressed:
+		return
 
 	if is_press and pressed:
 		if pos.distance_to(_paddle_c) < _r * 1.2:
@@ -161,6 +177,7 @@ func _update_stick() -> void:
 
 
 func _process(delta: float) -> void:
+	if _camera_button: _camera_button.visible = active
 	if not active or not visible:
 		_release_all()
 	_time += delta
@@ -179,23 +196,52 @@ func _draw() -> void:
 	draw_arc(c, _r * 0.78, 0, TAU, 48, Color(UiKit.SAND, 0.18), 2.0, true)
 	var knob := c + Vector2(Controles.touch_stick.x, -Controles.touch_stick.y) * _r
 	draw_circle(knob, _r * 0.42, Color(UiKit.SAND, 0.6 if _stick_id != NONE else 0.32))
-	# REMAR
+	# Stable double-ring controls: shape never changes with readiness/charge.
 	var paddle_on := _paddle_id != NONE or (not riding and Ajustes.paddle_toggle and Controles.paddle_latched)
-	draw_circle(_paddle_c, _r, Color(UiKit.TURQUOISE, 0.8 if paddle_on else 0.45))
-	draw_arc(_paddle_c, _r, 0, TAU, 48, white, 3.0, true)
-	_label(font, _paddle_c, "IMPULSO" if riding else "REMAR", _r)
-	if riding and impulse_charge>0.0:
-		draw_arc(_paddle_c,_r+7,-PI*.5,-PI*.5+TAU*impulse_charge,32,UiKit.CORAL,5,true)
-	# PARARSE (late cuando se puede)
-	var ready_now := stand_ready or (riding and trick_ready)
-	var pulse := (0.5 if Ajustes.reduce_motion else 0.5+0.5*sin(_time*10.0)) if ready_now else 0.0
-	var col := Color(UiKit.CORAL, 0.6 + 0.35 * pulse) if ready_now else Color(UiKit.NIGHT, 0.45)
-	if _stand_flash > 0.0 or _stand_id != NONE:
-		col = Color(1, 1, 1, 0.8)
-	var rs := _r * (0.9 + 0.08 * pulse)
-	draw_circle(_stand_c, rs, col)
-	draw_arc(_stand_c, rs, 0, TAU, 48, white, 3.0, true)
-	_label(font, _stand_c, "TRUCO" if riding else "PARARSE", _r)
+	var ready_now := stand_ready if not riding else trick_ready
+	var accent := UiKit.CORAL if release_ready() else UiKit.TURQUOISE
+	_button_face(_paddle_c, _r, accent, paddle_on)
+	_button_face(_stand_c, _r * 0.92, UiKit.CORAL if ready_now else UiKit.SAND, _stand_id != NONE)
+	var paddle_text := "IMPULSO" if riding else "REMAR"
+	var paddle_sub := "MANTÉN / SUELTA" if riding else ("ACTIVO" if paddle_on else "MANTENER")
+	if not riding and Ajustes.paddle_toggle: paddle_sub = "TOCA PARA PARAR" if paddle_on else "TOCA PARA REMAR"
+	if riding and impulse_charge > 0.0:
+		paddle_sub = "%d %%" % int(round(clampf(impulse_charge, 0, 1) * 100))
+		if release_ready(): paddle_sub = "SUELTA · " + paddle_sub
+	var trick_text := "TRUCO" if riding else "PARARSE"
+	var trick_sub := "DISPONIBLE" if ready_now else "ESPERA LA OLA"
+	if riding:
+		trick_sub = "AGARRAR" if airborne_context else ("CANTO / FRENO" if tube_context else ("LISTO EN LABIO" if ready_now else "BUSCA EL LABIO"))
+	_label(font, _paddle_c - Vector2(0, _r * 0.13), paddle_text, _r)
+	_label(font, _stand_c - Vector2(0, _r * 0.13), trick_text, _r)
+	_small_label(font, _paddle_c + Vector2(0, _r * 0.30), paddle_sub, _r)
+	_small_label(font, _stand_c + Vector2(0, _r * 0.30), trick_sub, _r)
+	if riding:
+		var charge := clampf(impulse_charge, 0.0, 1.0)
+		var ring := _r + 7.0
+		draw_arc(_paddle_c, ring, -PI*0.5, TAU-PI*0.5, 64, Color(UiKit.NIGHT, 0.7), 7, true)
+		if charge > 0.001: draw_arc(_paddle_c, ring, -PI*0.5, -PI*0.5+TAU*charge, 64, accent, 7, true)
+		for tick in 4:
+			var angle := -PI*0.5 + TAU*float(tick)/4.0
+			var radial := Vector2(cos(angle), sin(angle))
+			draw_line(_paddle_c+radial*(ring-5), _paddle_c+radial*(ring+5), UiKit.SAND, 2, true)
+
+func release_ready() -> bool:
+	# Same threshold and launch eligibility as the real trick system.
+	return riding and launch_ready and impulse_charge > SurfTricks.MIN_AIR_CHARGE
+
+func _button_face(center: Vector2, radius: float, accent: Color, held: bool) -> void:
+	draw_circle(center + Vector2(0, 3), radius + 3, Color(0.01, 0.04, 0.06, 0.32))
+	draw_circle(center, radius, Color(UiKit.NIGHT, 0.92 if Ajustes.high_contrast else 0.68))
+	draw_circle(center, radius - 5, Color(accent, 0.48 if held else 0.12))
+	draw_arc(center, radius, 0, TAU, 64, Color(accent, 1.0 if held else 0.75), 3, true)
+	draw_arc(center, radius - 7, 0, TAU, 64, Color(accent, 0.18), 1, true)
+
+func _small_label(font: Font, center: Vector2, text: String, radius: float) -> void:
+	var fs := maxi(12, int(radius * 0.20))
+	var width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	draw_string_outline(font, center + Vector2(-width*0.5, fs*0.35), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 3, Color(0,0,0,0.85))
+	draw_string(font, center + Vector2(-width*0.5, fs*0.35), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(UiKit.SAND, 1))
 
 
 func _label(font: Font, center: Vector2, text: String, r: float) -> void:

@@ -12,12 +12,14 @@ const KEYS := {
 	"surf_restart": [KEY_R],
 	"surf_pause": [KEY_ESCAPE, KEY_P],
 	"toggle_fps": [KEY_F3],
+	"surf_camera": [KEY_C],
 }
 const PAD_BUTTONS := {
 	"surf_paddle": [JOY_BUTTON_X, JOY_BUTTON_RIGHT_SHOULDER],
 	"surf_stand": [JOY_BUTTON_A],
 	"surf_restart": [JOY_BUTTON_Y],
 	"surf_pause": [JOY_BUTTON_START],
+	"surf_camera": [JOY_BUTTON_RIGHT_STICK],
 }
 const PAD_AXES := {
 	"surf_left": [JOY_AXIS_LEFT_X, -1.0],
@@ -27,6 +29,8 @@ const PAD_AXES := {
 }
 
 ## Joystick táctil: x = derecha, y = adelante.
+signal gamepad_changed
+signal gamepad_lost
 signal bindings_changed
 signal binding_message(text: String)
 var capture_action := ""
@@ -65,7 +69,23 @@ func _ready() -> void:
 			jm.axis_value = PAD_AXES[action][1]
 			InputMap.action_add_event(action, jm)
 
+	# Explicit UI mapping also works when project defaults only contain keyboard.
+	var ui_buttons := {"ui_accept": JOY_BUTTON_A, "ui_cancel": JOY_BUTTON_B,
+		"ui_left": JOY_BUTTON_DPAD_LEFT, "ui_right": JOY_BUTTON_DPAD_RIGHT,
+		"ui_up": JOY_BUTTON_DPAD_UP, "ui_down": JOY_BUTTON_DPAD_DOWN}
+	for action in ui_buttons:
+		var button_event := InputEventJoypadButton.new()
+		button_event.button_index = ui_buttons[action]
+		if not InputMap.action_has_event(action, button_event):
+			InputMap.action_add_event(action, button_event)
+	for action in ["ui_left", "ui_right", "ui_up", "ui_down"]:
+		var axis_event := InputEventJoypadMotion.new()
+		axis_event.axis = JOY_AXIS_LEFT_X if action in ["ui_left", "ui_right"] else JOY_AXIS_LEFT_Y
+		axis_event.axis_value = -1.0 if action in ["ui_left", "ui_up"] else 1.0
+		if not InputMap.action_has_event(action, axis_event):
+			InputMap.action_add_event(action, axis_event)
 	apply_bindings()
+	Input.joy_connection_changed.connect(_pad_connection)
 
 
 func stick() -> Vector2:
@@ -79,6 +99,9 @@ func stick() -> Vector2:
 		if raw.length_squared() > pad.length_squared():
 			pad = raw
 	var analog := filter_stick(pad)
+	for device in Input.get_connected_joypads():
+		var dpad := Vector2(float(Input.is_joy_button_pressed(device, JOY_BUTTON_DPAD_RIGHT)) - float(Input.is_joy_button_pressed(device, JOY_BUTTON_DPAD_LEFT)), float(Input.is_joy_button_pressed(device, JOY_BUTTON_DPAD_UP)) - float(Input.is_joy_button_pressed(device, JOY_BUTTON_DPAD_DOWN)))
+		if dpad.length_squared() > 0.0: analog = dpad.limit_length(1.0)
 	var touch := filter_stick(touch_stick)
 	if touch.length_squared() > analog.length_squared():
 		analog = touch
@@ -156,7 +179,7 @@ func bot_stand() -> void:
 
 const ACTION_NAMES := {"surf_left": "Girar a la izquierda", "surf_right": "Girar a la derecha",
 	"surf_up": "Peso adelante / remar", "surf_down": "Peso atrás", "surf_paddle": "Remar / cargar impulso",
-	"surf_stand": "Ponerse de pie / truco", "surf_pause": "Pausa", "surf_restart": "Reiniciar ola", "toggle_fps": "Mostrar FPS"}
+	"surf_stand": "Ponerse de pie / truco", "surf_pause": "Pausa", "surf_restart": "Reiniciar ola", "toggle_fps": "Mostrar FPS", "surf_camera": "Cambiar cámara"}
 
 func filter_stick(raw: Vector2) -> Vector2:
 	var radius := minf(raw.length(), 1.0)
@@ -209,8 +232,8 @@ func apply_bindings() -> void:
 
 
 func _binding_error(action: String, key: int) -> String:
-	if not KEYS.has(action) or key <= 0 or key == KEY_ESCAPE or OS.get_keycode_string(key).is_empty():
-		return "Tecla no permitida. Esc se reserva para volver o pausar."
+	if not KEYS.has(action) or key <= 0 or key in [KEY_ESCAPE, KEY_F11] or OS.get_keycode_string(key).is_empty():
+		return "Tecla no permitida. Esc vuelve/pausa y F11 cambia pantalla completa."
 	for other in KEYS:
 		if other == action:
 			continue
@@ -258,11 +281,13 @@ func cancel_rebind() -> void:
 func reset_controls() -> void:
 	cancel_rebind()
 	Ajustes.key_bindings.clear()
+	Ajustes.camera_view = 0
 	Ajustes.camera_distance = 1.0
 	Ajustes.steering_sensitivity = 1.0
 	Ajustes.stick_deadzone = 0.15
 	Ajustes.invert_weight = false
 	Ajustes.touch_mode = 0
+	Ajustes.touch_opacity = 0.8
 	Ajustes.touch_size = 1.0
 	Ajustes.left_handed = false
 	Ajustes.paddle_toggle = false
@@ -273,3 +298,16 @@ func reset_controls() -> void:
 	touch_stick = Vector2.ZERO
 	apply_bindings()
 	Ajustes.apply()
+
+
+func _pad_connection(_device: int, connected: bool) -> void:
+	paddle_latched = false
+	gamepad_changed.emit()
+	if not connected and Input.get_connected_joypads().is_empty():
+		gamepad_lost.emit()
+
+func gamepad_status() -> String:
+	var devices := Input.get_connected_joypads()
+	if devices.is_empty():
+		return "Sin mando detectado. En navegador, conecta el mando y pulsa un botón con el juego enfocado."
+	return "Mando: " + Input.get_joy_name(devices[0])

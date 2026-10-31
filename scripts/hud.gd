@@ -33,6 +33,15 @@ var _fps_frames := 0
 var _fps_text := ""
 var _last_combo := 1
 var _playing := false
+var school_active := false
+
+func set_school_mode(on: bool) -> void:
+	school_active = on
+	_score.get_parent().visible = not on
+	get_node("ChallengesPanel").visible = not on
+	_popups.visible = not on
+	queue_redraw()
+
 var _flow := 0.0
 var _charge := 0.0
 var _trick_text := ""
@@ -241,8 +250,9 @@ func popup(text: String, points: int) -> void:
 
 func update_state(surfer: Surfer, wave: WaveModel, score: ScoreKeeper, delta: float) -> void:
 	_time += delta
+	get_node("ChallengesPanel").visible = not school_active and Ajustes.camera_view != 1
 	_hint_time -= delta
-	_hint_panel.visible = _hint_time > 0.0 and Ajustes.show_hints
+	_hint_panel.visible = not school_active and _hint_time > 0.0 and Ajustes.show_hints
 	_prompt.visible = surfer.can_stand and surfer.state == Surfer.State.PRONE
 	_prompt.modulate.a = 0.65 + 0.35 * sin(_time * 12.0)
 	_flow=score.flow
@@ -317,13 +327,14 @@ func update_state(surfer: Surfer, wave: WaveModel, score: ScoreKeeper, delta: fl
 func _draw() -> void:
 	if not _show_balance:
 		return
-	var fw := minf(size.x*0.18,180.0)
-	var fc := Vector2(18+fw*.5,124)
-	draw_rect(Rect2(fc-Vector2(fw*0.5,0),Vector2(fw,7)),Color(UiKit.NIGHT,.85))
-	draw_rect(Rect2(fc-Vector2(fw*0.5,0),Vector2(fw*_flow,7)),UiKit.TURQUOISE)
-	var font := UiKit.font_display()
-	var text := "FLUJO %d%%" % int(_flow*100.0)
-	draw_string(font,fc+Vector2(-font.get_string_size(text,HORIZONTAL_ALIGNMENT_LEFT,-1,16).x*.5,-5),text,HORIZONTAL_ALIGNMENT_LEFT,-1,16,UiKit.SAND)
+	if not school_active:
+		var fw := minf(size.x*0.18,180.0)
+		var fc := Vector2(18+fw*.5,124)
+		draw_rect(Rect2(fc-Vector2(fw*0.5,0),Vector2(fw,7)),Color(UiKit.NIGHT,.85))
+		draw_rect(Rect2(fc-Vector2(fw*0.5,0),Vector2(fw*_flow,7)),UiKit.TURQUOISE)
+		var font := UiKit.font_display()
+		var text := "FLUJO %d%%" % int(_flow*100.0)
+		draw_string(font,fc+Vector2(-font.get_string_size(text,HORIZONTAL_ALIGNMENT_LEFT,-1,16).x*.5,-5),text,HORIZONTAL_ALIGNMENT_LEFT,-1,16,UiKit.SAND)
 	if _charge>0.0:
 		draw_arc(Vector2(size.x*.5,size.y-210),26,-PI*.5,-PI*.5+TAU*_charge,32,UiKit.CORAL,5,true)
 	var w := minf(size.x * 0.42, 460.0)

@@ -5,6 +5,8 @@ extends Control
 ## Todo lee y escribe en los sistemas reales: Ajustes, Perfil y Spots.
 
 signal play_requested(spot_index: int)
+signal school_requested(lesson: int)
+var _school_body: VBoxContainer
 signal restart_requested
 signal resume_requested
 signal menu_requested
@@ -38,6 +40,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	_build_main()
+	_build_school()
 	_build_spots()
 	_build_custom()
 	_build_career()
@@ -71,6 +74,8 @@ func open(screen: String, back := "") -> void:
 	match screen:
 		"main":
 			_refresh_main()
+		"school":
+			_refresh_school()
 		"spots":
 			_refresh_spots()
 		"custom":
@@ -236,7 +241,15 @@ func _build_main() -> void:
 	col.add_child(UiKit.spacer(4))
 	_main_play = UiKit.button("SURFEAR", true, 430)
 	_main_play.pressed.connect(func(): play_requested.emit(Ajustes.spot))
-	col.add_child(_main_play)
+	_main_play.custom_minimum_size.x = 270
+	_main_play.add_theme_font_size_override("font_size",24)
+	var play_row := HBoxContainer.new()
+	play_row.add_theme_constant_override("separation",10)
+	play_row.add_child(_main_play)
+	var school_button := UiKit.button("ESCUELA",false,150)
+	school_button.pressed.connect(func(): open("school","main"))
+	play_row.add_child(school_button)
+	col.add_child(play_row)
 	for entry in [["SPOTS", "spots"], ["SURFISTA Y TABLA", "custom"], ["CARRERA Y LOGROS", "career"], ["AJUSTES", "settings"]]:
 		var b := UiKit.button(entry[0], false, 430)
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -582,6 +595,16 @@ func _refresh_settings() -> void:
 	var b := _settings_body
 	match _settings_tab:
 		0:
+			if not Ajustes.is_mobile():
+				b.add_child(UiKit.setting_row("Pantalla completa", "F11 o Alt+Enter. En navegador requiere una acción del usuario.",
+					UiKit.toggle(Ajustes.fullscreen, func(v): Ajustes.set_fullscreen(v))))
+			if not Ajustes.is_mobile() and not OS.has_feature("web"):
+				b.add_child(UiKit.setting_row("Resolución de ventana", "Pantalla completa utiliza la resolución del monitor.",
+					UiKit.option(["1280 × 720", "1600 × 900", "1920 × 1080"], Ajustes.window_resolution, func(i): Ajustes.set_window_resolution(i))))
+			var resolution_note := UiKit.label(Ajustes.display_description(), 16, UiKit.TEXT_DIM)
+			resolution_note.set_script(preload("res://scripts/ui/display_info.gd"))
+			resolution_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			b.add_child(resolution_note)
 			b.add_child(UiKit.setting_row("Calidad gráfica",
 				"Baja: sin sombras ni detalle fino (móviles). Alta: máxima nitidez y sombras suaves.",
 				UiKit.option(Ajustes.PRESETS.map(func(p): return p["name"]), Ajustes.quality, func(i): Ajustes.set_quality(i))))
@@ -608,6 +631,10 @@ func _refresh_settings() -> void:
 			note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			b.add_child(note)
 		2:
+			b.add_child(UiKit.setting_row("Punto de vista", "También C o pulsar stick derecho durante la partida.",
+				UiKit.option(["Tercera persona", "Primera persona", "Frontal"], Ajustes.camera_view, func(i):
+					Ajustes.camera_view = i
+					_apply())))
 			b.add_child(UiKit.setting_row("Distancia de cámara", "Acerca o aleja la cámara de seguimiento.",
 				UiKit.slider(0.75, 1.35, 0.05, Ajustes.camera_distance, func(v): return "%d %%" % int(round(v * 100.0)), func(v):
 					Ajustes.camera_distance = v
@@ -631,6 +658,10 @@ func _refresh_settings() -> void:
 			b.add_child(UiKit.setting_row("Tamaño de los controles táctiles", "",
 				UiKit.slider(0.8, 1.4, 0.05, Ajustes.touch_size, func(v): return "%d %%" % int(round(v * 100.0)), func(v):
 					Ajustes.touch_size = v
+					_apply())))
+			b.add_child(UiKit.setting_row("Opacidad de controles táctiles", "Cambia la transparencia sin reducir el área de toque.",
+				UiKit.slider(0.35, 1.0, 0.05, Ajustes.touch_opacity, func(v): return "%d %%" % int(round(v * 100)), func(v):
+					Ajustes.touch_opacity = v
 					_apply())))
 			b.add_child(UiKit.setting_row("Modo zurdo", "Joystick a la derecha y botones a la izquierda.",
 				UiKit.toggle(Ajustes.left_handed, func(v):
@@ -822,3 +853,34 @@ func show_results(title: String, detail: String, stats: Dictionary, gains: Dicti
 	tw.tween_method(func(x): _res["score"].text = UiKit.num(int(x)), 0.0, float(target), 1.1)
 	bar.value = 0.0 if gains["level_after"] > gains["level_before"] else maxf(0.0, Perfil.level_progress() - 0.25)
 	tw.tween_property(bar, "value", Perfil.level_progress(), 1.0).set_delay(0.3)
+
+
+func _build_school() -> void:
+	var screen := _screen("school",0.7)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation",12)
+	_margin_box(screen).add_child(col)
+	_header(col,"APRENDE SURFEANDO","ESCUELA DEL PACÍFICO")
+	var description := UiKit.label("MI PRIMERA OLA · siete lecciones · sin penalizaciones ni cambios en récords de carrera.",20,UiKit.TEXT_DIM)
+	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	col.add_child(description)
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	col.add_child(scroll)
+	_school_body = VBoxContainer.new()
+	_school_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_school_body.add_theme_constant_override("separation",8)
+	scroll.add_child(_school_body)
+
+func _refresh_school() -> void:
+	_clear(_school_body)
+	var owner_game := get_tree().current_scene as Game
+	for i in SurfSchool.LESSONS.size():
+		var done := owner_game and owner_game.school and owner_game.school.completed.has(i)
+		var button := UiKit.button("%02d · %s%s" % [i+1,SurfSchool.LESSONS[i].title," · COMPLETADA" if done else ""],false)
+		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		button.pressed.connect(func(): school_requested.emit(i))
+		_school_body.add_child(button)
+	var note := UiKit.label("Después de esta ruta: la academia avanzada de maniobras y tubo está diseñada, pero aún no está disponible.",17,UiKit.TEXT_DIM)
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_school_body.add_child(note)

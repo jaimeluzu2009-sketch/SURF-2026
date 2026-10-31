@@ -29,6 +29,7 @@ var _missed_timer := -1.0
 var session := SurfSession.new()
 var barrel: Barrel
 var surf_audio: SurfAudio
+var school: SurfSchool
 
 
 func _ready() -> void:
@@ -66,8 +67,16 @@ func _ready() -> void:
 	surfer.hint.connect(func(t): hud.show_hint(t))
 	score.event.connect(func(t, p): hud.popup(t, p))
 	hud.pause_pressed.connect(pause)
+	Controles.gamepad_lost.connect(func():
+		if mode == Mode.PLAY: pause())
+	school = SurfSchool.new()
+	add_child(school)
+	school.setup(self)
+	menus.school_requested.connect(school.start)
 	menus.play_requested.connect(_on_play_requested)
-	menus.restart_requested.connect(start_play)
+	menus.restart_requested.connect(func():
+		if school.active: school.retry()
+		else: start_play())
 	menus.resume_requested.connect(resume)
 	menus.menu_requested.connect(to_menu)
 	menus.customize_preview.connect(_on_customize_preview)
@@ -100,6 +109,12 @@ func _ready() -> void:
 		bot.name = "Bot"
 		bot.setup(self, args)
 		add_child(bot)
+	elif "--school-test" in args:
+		add_child(load("res://tests/school_test.gd").new())
+	elif "--tube-touch-test" in args:
+		add_child(load("res://tests/tube_touch_test.gd").new())
+	elif "--camera-motion-test" in args:
+		add_child(load("res://tests/camera_motion_test.gd").new())
 	elif "--anatomy-test" in args:
 		add_child(load("res://tests/anatomy_test.gd").new())
 	elif "--visual-polish-test" in args:
@@ -175,6 +190,7 @@ func _apply_quality() -> void:
 # ------------------------------------------------------------------ modos
 
 func to_menu() -> void:
+	if school and school.active: school.cancel()
 	get_tree().paused = false
 	mode = Mode.MENU
 	Controles.paddle_latched = false
@@ -187,7 +203,7 @@ func to_menu() -> void:
 
 
 func start_play() -> void:
-	if session.index != Ajustes.session_condition:
+	if not (school and school.active) and session.index != Ajustes.session_condition:
 		session.setup(spot, Ajustes.session_condition)
 	get_tree().paused = false
 	menus.close()
@@ -210,6 +226,7 @@ func pause() -> void:
 	Controles.paddle_latched = false
 	get_tree().paused = true
 	menus.open("pause")
+	if school and school.active: school.set_paused(true)
 
 
 func resume() -> void:
@@ -218,9 +235,11 @@ func resume() -> void:
 	menus.close()
 	get_tree().paused = false
 	mode = Mode.PLAY
+	if school and school.active: school.set_paused(false)
 
 
 func _on_play_requested(i: int) -> void:
+	if school.active: school.cancel()
 	if i == Ajustes.spot:
 		start_play()
 		return
@@ -239,6 +258,9 @@ func _on_customize_preview(on: bool) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if mode == Mode.PLAY and event.is_action_pressed("surf_camera") and not event.is_echo():
+		cam.cycle_view()
+		get_viewport().set_input_as_handled()
 	if mode == Mode.PLAY and event.is_action_pressed("surf_pause"):
 		pause()
 		get_viewport().set_input_as_handled()
@@ -252,6 +274,9 @@ func restart() -> void:
 	score.reset()
 	_place_surfer_at_lineup()
 	_missed_timer = -1.0
+	if school and school.active:
+		school.prepare_attempt()
+		return
 	var side := "derecha: al pararte, gira a tu derecha (%s)" % Controles.key_label("surf_right") if wave.peel_dir < 0.0 \
 		else "izquierda: al pararte, gira a tu izquierda (%s)" % Controles.key_label("surf_left")
 	hud.show_hint("Es una %s. Espera tumbado y rema hacia la playa cuando la ola esté a unos 10 m." % side, 7.0)
@@ -273,6 +298,9 @@ func _physics_process(delta: float) -> void:
 	if mode==Mode.PLAY: score.tick(delta)
 	if surfer.state == Surfer.State.PRONE and _missed_timer < 0.0 \
 			and wave.crest_z > surfer.global_position.z + 10.0:
+		if school and school.active:
+			school.missed_wave()
+			return
 		_missed_timer = 2.5
 		hud.show_hint("Se te fue la ola. Viene la siguiente...", 2.5)
 	if _missed_timer >= 0.0:
@@ -313,6 +341,9 @@ func _process(delta: float) -> void:
 	touch.visible = Ajustes.touch_enabled() and mode == Mode.PLAY
 	touch.impulse_charge=surfer.tricks.charge
 	var sample: Dictionary = surfer.last_sample
+	touch.launch_ready = not sample.is_empty() and surfer.tricks.launch_available(sample)
+	touch.tube_context = surfer.in_tube
+	touch.airborne_context = surfer.state == Surfer.State.AIRBORNE
 	touch.trick_ready=surfer.in_tube or surfer.state in [Surfer.State.AIRBORNE,Surfer.State.FLOATER] or (surfer.state==Surfer.State.RIDING and surfer.speed()>=4.5 and float(sample.get("profile",0))>0.5 and absf(float(sample.get("u",99)))<float(sample.get("face_width",1))*.58)
 	hud.set_hint_lane(touch.hint_lane())
 	if mode == Mode.PLAY and Input.is_action_just_pressed("surf_restart"):
@@ -345,6 +376,9 @@ func _on_ride_ended(success: bool, title: String, detail: String) -> void:
 		"tube_time": surfer.tube_seconds,
 		"tube_exits": surfer.tube_exits,
 	}
+	if school and school.active:
+		school.ride_ended(success,title,detail)
+		return
 	var gains := Perfil.record_ride(spot, stats)
 	ride_result.emit(stats, gains)
 	if has_node("Bot"):

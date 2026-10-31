@@ -23,15 +23,21 @@ void fragment() {
  float lip=(1.0-smoothstep(0.015,0.14,max(UV.y,0.0)));
  float crown=exp(-pow((UV.y-0.48)/0.12,2.0))*0.20;
  float mouth=smoothstep(0.82,0.99,UV.x);
+ float filaments=smoothstep(0.58,0.82,fine)*smoothstep(0.42,0.7,grain);
+ float streaks=filaments*(1.0-smoothstep(0.08,0.60,max(UV.y,0.0)))*(0.12+fine*0.20);
  float foam=clamp((lip*0.82+crown+mouth*0.50)*(0.40+0.60*grain)+curtain*0.30,0.0,1.0);
- foam=smoothstep(0.18,0.85,foam+fine*lip*0.25);
- float fade=smoothstep(0.0,0.055,UV.x)*(1.0-smoothstep(0.94,1.0,UV.x));
+ foam=smoothstep(0.18,0.85,foam+fine*lip*0.25+streaks);
+ float fade=smoothstep(0.0,0.09,UV.x)*(1.0-smoothstep(0.88,1.0,UV.x));
  float ripple=sin(UV.x*67.0+UV.y*22.0-t*5.0)*0.018;
  if(detail_level>0) NORMAL_MAP=normalize(vec3(ripple,(fine-0.5)*0.10,1.0))*0.5+0.5;
  float fres=pow(1.0-clamp(abs(dot(normalize(normal_world),normalize(CAMERA_POSITION_WORLD-wp))),0.0,1.0),4.0);
  float thin=0.55+0.45*sin(clamp(UV.y,0.0,1.0)*3.14159265);
  vec3 water=mix(tint,thin_tint,thin*0.75)*(0.94+0.12*grain);
  water=mix(water,sky_tint*0.75,fres*0.28);
+ float thickness=smoothstep(0.0,0.45,UV.y)*(1.0-smoothstep(0.52,1.0,UV.y));
+ float interior=1.0-step(0.0,dot(normalize(normal_world),normalize(CAMERA_POSITION_WORLD-wp)));
+ water*=mix(1.04,0.70,thickness);
+ water=mix(water,thin_tint*0.72+sky_tint*0.10,interior*0.18);
  float diffuse=0.72+0.28*abs(dot(normalize(normal_world),normalize(to_sun)));
  ALBEDO=mix(water*diffuse+thin_tint*0.14,foam_tint,foam*0.90);
  // Gentle transmission also keeps the inner wall from turning into a black roof.
@@ -39,6 +45,8 @@ void fragment() {
  ROUGHNESS=mix(0.23,0.78,foam);
  SPECULAR=mix(0.48,0.22,foam);
  METALLIC=0.0;
- ALPHA=mix(clamp(0.48+fres*0.16+grain*0.025,0.0,0.92),0.96,foam)*fade;
+ float wall_alpha=mix(0.60+fres*0.12,0.89+fres*0.06,interior);
+ ALPHA=mix(clamp(wall_alpha+grain*0.025,0.0,0.97),0.98,foam)*fade;
+ ALPHA*=1.0-smoothstep(0.88,1.0,UV.y);
  ALPHA*=mix(1.0,smoothstep(-0.10,-0.025,UV.y)*(0.48+0.28*fine),curtain);
 }

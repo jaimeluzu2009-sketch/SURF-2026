@@ -22,6 +22,26 @@ var _ready_once := false
 var _lead := Vector3.ZERO
 var _tube_mix := 0.0
 var _avoidance := Vector3.ZERO
+var _last_view := -1
+var _fp_body: FirstPersonBody
+
+func cycle_view() -> void:
+	Ajustes.camera_view = (Ajustes.camera_view + 1) % 3
+	Ajustes._save()
+	snap_now()
+
+func _set_body_visible(on: bool) -> void:
+	var body := surfer.get_node("Rider/SurferModel").find_child("Surfer", true, false) as MeshInstance3D
+	if not body: return
+	body.visible = on
+	if not on:
+		if not is_instance_valid(_fp_body):
+			_fp_body = FirstPersonBody.new()
+			_fp_body.name = "FirstPersonBody"
+			body.get_parent().add_child(_fp_body)
+		_fp_body.sync_body(body, surfer.animator.skeleton)
+	if is_instance_valid(_fp_body): _fp_body.visible = not on
+
 
 
 func _ready() -> void:
@@ -96,6 +116,10 @@ func _process(delta: float) -> void:
 	if surfer == null or wave == null:
 		return
 	_t += delta
+	_set_body_visible(mode != Mode.FOLLOW or Ajustes.camera_view != 1 or surfer.state == Surfer.State.WIPEOUT)
+	if _last_view != Ajustes.camera_view:
+		_last_view = Ajustes.camera_view
+		snap_now()
 	if mode != Mode.FOLLOW:
 		_menu_camera(delta)
 		return
@@ -138,18 +162,31 @@ func _process(delta: float) -> void:
 	var tube_pos := target - line * tube_back + Vector3(0, 0.85, 0)
 	desired = desired.lerp(tube_pos, _tube_mix)
 	look_target = look_target.lerp(target + line * 1.8 + Vector3(0, 0.8, 0), _tube_mix)
-	if _tube_mix < 0.5:
+	if Ajustes.camera_view == 1 and surfer.state != Surfer.State.WIPEOUT:
+		var eye := surfer.animator.bone_position("head")
+		# Camera follows the authored crouch, with no roll or artificial head bob.
+		var fp_forward := surfer.forward()
+		var prone := surfer.state == Surfer.State.PRONE
+		desired = eye + fp_forward * (0.02 if prone else -0.08) + Vector3.UP * (0.22 if prone else 0.10)
+		look_target = desired + fp_forward * 2.4 + Vector3(0, -1.15 if prone else -1.6, 0)
+		_avoidance = Vector3.ZERO
+	elif Ajustes.camera_view == 2:
+		desired = target + _dir * back * distance_scale + Vector3(0, height, shore)
+		look_target = target + Vector3.UP * 0.85
+	if (Ajustes.camera_view != 1 or surfer.state == Surfer.State.WIPEOUT) and _tube_mix < 0.5:
 		var correction := safe_follow_position(desired, look_target) - desired
 		var avoid_rate := 12.0 if correction.length_squared() > _avoidance.length_squared() else 2.5
 		_avoidance = _avoidance.lerp(correction, 1.0 - exp(-avoid_rate * delta))
 		desired += _avoidance
 	var pos := desired
+	var response := 18.0 if Ajustes.camera_view == 1 else follow_speed
 	if _ready_once:
-		pos = global_position.lerp(desired, 1.0 - exp(-follow_speed * delta))
+		pos = global_position.lerp(desired, 1.0 - exp(-response * delta))
 		_look = _look.lerp(look_target, 1.0 - exp(-6.0 * delta))
 	else:
 		_look = look_target
-	var minimum := 0.22 if _tube_mix > 0.5 else 0.65
+	near = 0.04 if Ajustes.camera_view == 1 else 0.10
+	var minimum := 0.18 if Ajustes.camera_view == 1 and surfer.state == Surfer.State.PRONE else (0.22 if _tube_mix > 0.5 else 0.65)
 	pos.y = maxf(pos.y, wave.height_at(pos.x, pos.z) + minimum)
 	if _tube_mix > 0.5:
 		var tube := wave.tube_at(pos, 0.10)
@@ -161,5 +198,6 @@ func _process(delta: float) -> void:
 	_ready_once = true
 	global_position = pos
 	var target_fov := 70.0 if Ajustes.reduce_motion else lerpf(68.0, 74.0, clampf(surfer.speed() / 12.0, 0, 1))
+	if Ajustes.camera_view == 1: target_fov = 88.0 if surfer.state == Surfer.State.PRONE else 82.0
 	fov = lerpf(fov, target_fov, 1.0 - exp(-2.0 * delta))
 	look_at(_look, Vector3.UP)

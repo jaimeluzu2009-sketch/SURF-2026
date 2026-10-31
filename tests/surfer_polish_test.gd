@@ -102,6 +102,7 @@ func checks(folder: String) -> void:
 	animator.tree.active = true
 	animator.jump_to("ride")
 	animator.set_ride_blend(0, 0)
+	animator.tube_compression = 1.0 # Techo bajo: ahora la postura depende del espacio disponible.
 	animator.set_motion(8, 0, true, 0.3)
 	for frame in 120:
 		animator._process(1.0/60.0)

@@ -15,6 +15,9 @@ const PRESETS := [
 ]
 const TOUCH_MODES := ["Auto", "Siempre", "Nunca"]
 
+const WINDOW_SIZES := [Vector2i(1280,720), Vector2i(1600,900), Vector2i(1920,1080)]
+var fullscreen := false
+var window_resolution := 2
 var quality := 1
 var fps_limit := 60
 var show_fps := false
@@ -24,8 +27,10 @@ var adaptive := true
 var volume := 0.8
 var session_condition := 1
 ## Controles
+var touch_opacity := 0.8      ## Opacidad visual (0.35-1), no altera áreas táctiles
 var touch_size := 1.0         ## Tamaño de los controles táctiles (0.8-1.4)
 var left_handed := false      ## Joystick a la derecha y botones a la izquierda
+var camera_view := 0         ## 0 tercera persona, 1 primera persona, 2 frontal
 var camera_distance := 1.0    ## Distancia de seguimiento (0.75-1.35)
 var steering_sensitivity := 1.0
 var stick_deadzone := 0.15
@@ -62,6 +67,8 @@ func _ready() -> void:
 		if a.begins_with("--condition="):
 			session_condition = clampi(int(a.get_slice("=", 1)), 0, 2)
 	apply()
+	if persist and not is_mobile() and not OS.has_feature("web"):
+		_apply_window.call_deferred()
 
 
 static func is_mobile() -> bool:
@@ -156,6 +163,8 @@ func _load() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(config_path()) != OK:
 		return
+	fullscreen = bool(cfg.get_value("video", "pantalla_completa", false))
+	window_resolution = clampi(int(cfg.get_value("video", "resolucion_ventana", 2)), 0, 2)
 	quality = clampi(cfg.get_value("video", "calidad", quality), 0, PRESETS.size() - 1)
 	fps_limit = cfg.get_value("video", "fps", fps_limit)
 	show_fps = cfg.get_value("video", "mostrar_fps", show_fps)
@@ -164,8 +173,10 @@ func _load() -> void:
 	spot = cfg.get_value("juego", "spot", spot)
 	volume = cfg.get_value("audio", "volumen", volume)
 	session_condition = clampi(cfg.get_value("juego", "condicion", 1), 0, 2)
+	touch_opacity = clampf(float(cfg.get_value("controles", "opacidad", 0.8)), 0.35, 1.0)
 	touch_size = cfg.get_value("controles", "tamano", touch_size)
 	steering_sensitivity = clampf(float(cfg.get_value("controles", "sensibilidad", 1.0)), 0.5, 1.5)
+	camera_view = clampi(int(cfg.get_value("controles", "vista_camara", 0)), 0, 2)
 	camera_distance = clampf(float(cfg.get_value("controles", "distancia_camara", 1.0)), 0.75, 1.35)
 	stick_deadzone = clampf(float(cfg.get_value("controles", "zona_muerta", 0.15)), 0.0, 0.4)
 	invert_weight = bool(cfg.get_value("controles", "invertir_peso", false))
@@ -183,6 +194,8 @@ func _save() -> void:
 	if not persist:
 		return
 	var cfg := ConfigFile.new()
+	cfg.set_value("video", "pantalla_completa", fullscreen)
+	cfg.set_value("video", "resolucion_ventana", window_resolution)
 	cfg.set_value("video", "calidad", quality)
 	cfg.set_value("video", "fps", fps_limit)
 	cfg.set_value("video", "mostrar_fps", show_fps)
@@ -191,9 +204,11 @@ func _save() -> void:
 	cfg.set_value("juego", "spot", spot)
 	cfg.set_value("audio", "volumen", volume)
 	cfg.set_value("juego", "condicion", session_condition)
+	cfg.set_value("controles", "opacidad", touch_opacity)
 	cfg.set_value("controles", "tamano", touch_size)
 	cfg.set_value("controles", "zurdo", left_handed)
 	cfg.set_value("controles", "sensibilidad", steering_sensitivity)
+	cfg.set_value("controles", "vista_camara", camera_view)
 	cfg.set_value("controles", "distancia_camara", camera_distance)
 	cfg.set_value("controles", "zona_muerta", stick_deadzone)
 	cfg.set_value("controles", "invertir_peso", invert_weight)
@@ -208,6 +223,41 @@ func _save() -> void:
 
 func config_path() -> String:
 	var args := OS.get_cmdline_user_args()
+	if "--qa" in args and "--school-test" in args:
+		return "user://school-settings-test.cfg"
+	if "--qa" in args and "--tube-touch-test" in args:
+		return "user://tube-touch-test.cfg"
 	if "--qa" in args and "--polish-test" in args:
 		return "user://polish-test.cfg"
 	return "user://controls-test.cfg" if "--qa" in args and "--controls-test" in args else PATH
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.physical_keycode == KEY_F11 or (event.alt_pressed and event.physical_keycode == KEY_ENTER):
+			set_fullscreen(not fullscreen)
+			get_viewport().set_input_as_handled()
+
+func set_fullscreen(on: bool) -> void:
+	fullscreen = on
+	_apply_window()
+	_save()
+
+func set_window_resolution(index: int) -> void:
+	window_resolution = clampi(index, 0, WINDOW_SIZES.size()-1)
+	_apply_window()
+	_save()
+
+func _apply_window() -> void:
+	if DisplayServer.get_name() == "headless" or is_mobile(): return
+	var window := get_window()
+	window.mode = Window.MODE_FULLSCREEN if fullscreen else Window.MODE_WINDOWED
+	if not fullscreen and not OS.has_feature("web"):
+		var available := DisplayServer.screen_get_usable_rect(window.current_screen)
+		window.size = WINDOW_SIZES[window_resolution].min(available.size - Vector2i(32,64)).max(Vector2i(960,540))
+		window.position = available.position + (available.size-window.size)/2
+
+func display_description() -> String:
+	var pixels := get_window().size
+	var output := get_viewport().get_texture().get_size()
+	return "Ventana %d × %d · salida %d × %d · escala 3D %.0f %% (adaptativa puede reducirla)" % [pixels.x,pixels.y,int(output.x),int(output.y),render_scale*100]

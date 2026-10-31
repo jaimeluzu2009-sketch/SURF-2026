@@ -18,6 +18,8 @@ var _speed_target := 0.0
 var _balance_target := 0.0
 var _slope_target := 0.0
 var _tuck := 0.0
+var tube_compression := 0.0
+var _tube_compression_smoothed := 0.0
 var _turn_load := 0.0
 var _secondary_source := {}
 var _secondary_result := {}
@@ -149,22 +151,24 @@ func _process(delta: float) -> void:
 	_motion_speed = lerpf(_motion_speed, _speed_target, k)
 	_motion_balance = lerpf(_motion_balance, _balance_target, k)
 	_ride_blend = _ride_blend.lerp(_ride_target, k)
-	var tuck_goal := 0.92 if _crouch else clampf(_motion_speed * 0.008 + _slope_target * 0.18 + _turn_load * 0.10, 0.0, 0.28)
+	_tube_compression_smoothed = lerpf(_tube_compression_smoothed, tube_compression, k)
+	var tuck_goal := lerpf(0.65, 1.0, _tube_compression_smoothed) if _crouch else clampf(_motion_speed * 0.008 + _slope_target * 0.18 + _turn_load * 0.10, 0.0, 0.28)
 	_tuck = lerpf(_tuck, tuck_goal, k)
 	if tree:
 		tree.set("parameters/ride/surf/blend_position", _ride_blend)
 		tree.set("parameters/ride/mix/blend_amount", _tuck)
 
 func _secondary_pose() -> void:
-	if _posing or current() != "ride":
+	if _posing or current() not in ["ride", "tube_rail", "hand_drag", "floater", "air", "grab", "landing", "snap"]:
 		return
 	_posing = true
 	# Upper body only: compression uses an authored pose with feet on the board.
 	for entry in [["chest", Vector3.RIGHT, _motion_balance * 0.06 + sin(_breath * 2.4) * 0.010],
-		["spine", Vector3.RIGHT, -0.025 * clampf(_motion_speed / 8.0, 0.0, 1.0)],
-		["head", Vector3.UP, _ride_blend.x * 0.10],
-		["upper_arm_L", Vector3.FORWARD, sin(_breath * 1.8) * 0.025],
-		["upper_arm_R", Vector3.FORWARD, -sin(_breath * 1.8) * 0.025]]:
+		["spine", Vector3.RIGHT, -0.025 * clampf(_motion_speed / 8.0, 0.0, 1.0) - _tube_compression_smoothed * 0.035],
+		["neck", Vector3.UP, _ride_blend.x * 0.10 * (1.0 - _tuck)],
+		["head", Vector3.UP, _ride_blend.x * 0.20],
+		["upper_arm_L", Vector3.FORWARD, sin(_breath * 1.8) * 0.025 + _ride_blend.x * 0.12 * (1.0 - _tuck)],
+		["upper_arm_R", Vector3.FORWARD, -sin(_breath * 1.8) * 0.025 + _ride_blend.x * 0.12 * (1.0 - _tuck)]]:
 		var bone := skeleton.find_bone(entry[0])
 		if bone < 0:
 			continue

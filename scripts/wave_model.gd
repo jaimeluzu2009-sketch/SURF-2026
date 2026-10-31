@@ -145,7 +145,7 @@ func tube_section(x: float, t := -1.0) -> Dictionary:
 	var ahead := (x - d[1]) * peel_dir
 	var envelope := sstep(-1.5, 0.0, ahead)
 	var strength := tube_strength * d[2] * sstep(0.9, 1.7, d[3]) * sstep(-30.0, -18.0, d[0])
-	var radius := front_width * 0.82
+	var radius := front_width * 0.82 * (0.96 + 0.04 * sin(ahead * 0.65 + t * 0.3))
 	var cz := d[0] + front_width * 0.84
 	# Sample floor at the same render instant without changing wave state.
 	var old := time
@@ -155,12 +155,18 @@ func tube_section(x: float, t := -1.0) -> Dictionary:
 	time = old
 	update()
 	return {"ahead": ahead, "z": cz, "floor": floor_y, "rz": radius,
-		"ry": 2.10 * strength * envelope, "active": strength > 0.95 and envelope > 0.20 and ahead < 6.8}
+		"ry": 2.10 * strength * envelope * (0.95 + 0.05 * sin(ahead * 0.82 - t * 0.24)), "active": strength > 0.95 and envelope > 0.20 and ahead < 6.8}
+
+static func tube_roof(section: Dictionary, z: float) -> float:
+	var offset := clampf((z - float(section["z"])) / float(section["rz"]), -1.0, 1.0)
+	# Broad shoulder feeding a tighter falling lip; no separate render-only arch.
+	var arch := sqrt(maxf(0.0, 1.0 - offset * offset)) * (1.0 - 0.18 * offset)
+	return float(section["floor"]) + 0.12 + float(section["ry"]) * arch
 
 func tube_at(pos: Vector3, head_height := 1.50) -> Dictionary:
 	var sec := tube_section(pos.x)
 	var offset: float = (pos.z - sec["z"]) / sec["rz"]
 	var inside: bool = sec["active"] and absf(offset) < 0.93 and sec["ahead"] > -0.5 and sec["ahead"] < 6.8
-	var roof: float = sec["floor"] + 0.12 + sec["ry"] * sqrt(maxf(0.0, 1.0 - offset * offset))
+	var roof: float = tube_roof(sec, pos.z)
 	return {"inside": inside, "roof": roof, "clearance": roof - pos.y - head_height,
 		"ahead": sec["ahead"], "center_z": sec["z"]}

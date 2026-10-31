@@ -2,6 +2,7 @@ class_name SurfTricks
 extends RefCounted
 ## Trucos sobre la misma superficie analítica que mueve y dibuja el océano.
 ## No guarda una referencia fuerte al surfista (evita ciclos RefCounted/Node).
+const MIN_AIR_CHARGE := 0.18
 var _owner: WeakRef
 var charge := 0.0
 var impact := 0.0
@@ -116,10 +117,10 @@ func surface(delta: float, sample: Dictionary, stick: Vector2) -> bool:
 	if _charge_release:
 		var power := charge
 		charge=0.0
-		if power>0.18 and can_launch(sample) and _cooldown<=0.0:
+		if power>MIN_AIR_CHARGE and launch_available(sample):
 			launch(power)
 			return true
-		elif power>0.18:
+		elif power>MIN_AIR_CHARGE:
 			s.hint.emit("Para despegar: velocidad y labio de la ola. Suelta IMPULSO cerca de la cresta.")
 	_update_snap(delta,clean)
 	if s.in_tube:
@@ -156,6 +157,9 @@ func surface(delta: float, sample: Dictionary, stick: Vector2) -> bool:
 		else:
 			s.hint.emit("TRUCO en el labio: con giro = snap; sin giro = floater. En el aire: mantener para agarrar.")
 	return false
+
+func launch_available(sample: Dictionary) -> bool:
+	return _cooldown <= 0.0 and can_launch(sample)
 
 func can_launch(sample: Dictionary) -> bool:
 	var s := surfer()

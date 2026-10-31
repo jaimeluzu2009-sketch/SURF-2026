@@ -37,3 +37,5 @@ Los modelos se adaptan/generan con las herramientas de `tools/`; la nueva anatom
 
 Versión 1.4.0: agua continua y surfista anatómico. Ver
 [VALIDACION_AGUA_ANATOMIA.md](VALIDACION_AGUA_ANATOMIA.md) y [RELEASE_1.4.0.md](RELEASE_1.4.0.md).
+
+Cambios locales posteriores a 1.4.0: escuela inicial jugable, F11/Alt+Enter y primera persona con tabla/brazos. Ver [VALIDACION_ESCUELA_PC.md](VALIDACION_ESCUELA_PC.md). No están incluidos en el APK publicado.

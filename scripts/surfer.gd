@@ -67,6 +67,7 @@ var _bob := 0.0
 var _paddle_amount := 0.0
 var _rider_detached := false
 var _fall_yaw := 0.0
+var _fall_orientation := Quaternion.IDENTITY
 var _spin := 0.0
 var _roll_wipe := 0.0
 var _reported := false
@@ -215,6 +216,12 @@ func reset_to(pos: Vector3, heading: float) -> void:
 	yaw = heading
 	rotation = Vector3(0, yaw, 0)
 	hvel = Vector2.ZERO
+	velocity = Vector3.ZERO
+	_spin = 0.0
+	_fall_orientation = Quaternion.IDENTITY
+	animator.tube_compression = 0.0
+	can_stand = false
+	paddling = false
 	carve = 0.0
 	trim = 0.0
 	balance = 0.0
@@ -496,6 +503,8 @@ func finish_success() -> void:
 
 
 func _wipeout(title: String, detail: String) -> void:
+	if state in [State.WIPEOUT, State.DONE]: return
+	_fall_orientation = rider.global_basis.orthonormalized().get_rotation_quaternion()
 	tricks.cancel_input()
 	maneuver_failed.emit()
 	state = State.WIPEOUT
@@ -528,8 +537,8 @@ func _do_after(delta: float, s: Dictionary) -> void:
 		rp += Vector3(0.0, 0.0, rs["flow"] * 0.85) * delta
 		rp.y = lerpf(rp.y, rs["height"], 1.0 - exp(-6.0 * delta))
 		var upright := Basis(Vector3.UP, _fall_yaw)
-		var q := rider.global_basis.get_rotation_quaternion().slerp(upright.get_rotation_quaternion(),
-			1.0 - exp(-6.0 * delta))
+		var q := _fall_orientation.slerp(upright.get_rotation_quaternion(),
+			1.0 - exp(-4.0 * _state_time))
 		var tumble := sin(minf(_state_time * 2.0, PI)) * 0.55
 		rider.global_transform = Transform3D(Basis(q) * Basis(Vector3.FORWARD, tumble * _fall_sign), rp)
 		# El leash no deja que la tabla se aleje más de su longitud.
@@ -623,6 +632,7 @@ func _update_visual(delta: float, s: Dictionary) -> void:
 
 func _update_tube(delta: float) -> void:
 	var data := wave.tube_at(global_position, tricks.tube_head_height() if in_tube else 1.5)
+	animator.tube_compression = clampf((1.6 - (float(data["roof"]) - global_position.y)) / 0.65, 0.0, 1.0) if data["inside"] else 0.0
 	var was := in_tube
 	in_tube = state == State.RIDING and data["inside"]
 	if in_tube:

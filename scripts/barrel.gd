@@ -80,12 +80,14 @@ func _build(t: float, d: PackedFloat32Array) -> void:
 			var v: float
 			if j < 2:
 				var f := 1.0-float(j)*0.5
-				p = Vector3(x,lerpf(lip_y,impact_y,f),lip_z+0.08*f)
+				var strand := sin(x * 5.2 - t * 6.0) * sin(x * 2.7 + t * 3.0)
+				p = Vector3(x,lerpf(lip_y,impact_y,f),lip_z+(0.08+0.045*strand)*f)
 				v = -0.10*f
 			else:
 				v = float(j-2)/nr
-				var angle := v*PI
-				p = Vector3(x,sec["floor"]+0.12+sec["ry"]*sin(angle),sec["z"]+sec["rz"]*cos(angle))
+				var angle := (v + 0.035 * sin(v * TAU)) * PI
+				var z: float = sec["z"] + sec["rz"] * cos(angle)
+				p = Vector3(x, WaveModel.tube_roof(sec, z), z)
 			vertices[i*rows+j] = p
 			uvs[i*rows+j] = Vector2(u,v)
 	wave.time = old_time

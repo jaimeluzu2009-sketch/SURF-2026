@@ -1,6 +1,6 @@
 # BARRELS — instrucciones y continuidad para Claude
 
-Actualizado: 30 de octubre de 2026. Entrega 1.4.0: agua y anatomía mejoradas.
+Actualizado: 30 de octubre de 2026. APK 1.4.0 publicado; instalación confirmada por el usuario.
 Trabaja sobre este proyecto existente.
 Esta guía registra el estado del traspaso; verifica los cambios posteriores con
 Git y los informes antes de asumir que una prueba o publicación sigue vigente.
@@ -15,8 +15,8 @@ Git y los informes antes de asumir que una prueba o publicación sigue vigente.
   generadas deben identificarse como tales; no sustituyen una validación en Godot.
 - No generes APK, AAB ni exportación web automáticamente por cada cambio. Consulta
   antes, salvo autorización explícita vigente para esa entrega.
-- Autorización de la entrega ya completada: «Continuar y crear APK subir al github», del 30 de octubre.
-  La entrega 1.3.0 ya se completó. Consulta antes de otra compilación o publicación.
+- La entrega autorizada 1.4.0 ya se completó y publicó. Esta guía no autoriza otra
+  compilación ni publicación. Consulta antes de generar APK/AAB/web o subir nuevas entregas.
 - Conserva datos y cambios locales. No uses reset/clean/force-push para simplificar
   una entrega. No publiques claves, contraseñas, SDK, cachés ni capturas en el repo.
 
@@ -127,7 +127,9 @@ Resultados anteriores al traspaso: personalización aprobada con clics, toques
 simulados, arrastre y persistencia en dos formatos; 100 comprobaciones de trucos,
 regresiones de controles/ropa/tubo y 3/3 olas aprobadas en PC RTX 4060.
 Algunos procesos headless conservan avisos de 4–6 objetos ObjectDB al cerrar.
-Android físico y una nueva ejecución web siguen pendientes; no los des por probados.
+El usuario confirmó que 1.4.0 ya se instala en su POCO F7 Pro. No confirmó todavía
+una sesión completa de juego, FPS, controles ni las tres olas en ese teléfono.
+Una nueva ejecución web sigue pendiente.
 
 Capturas reales: `capturas/personalizacion/`, `capturas/trucos/`. Están ignoradas
 por Git. Usa imágenes de la ejecución que corresponde a tus cambios y mira su
@@ -138,11 +140,11 @@ las pruebas de arrastre táctil habilitan `Input.emulate_touch_from_mouse` SOLO 
 ## 7. GitHub, APK y firma
 
 Repositorio: https://github.com/jaimeluzu2009-sketch/SURF-2026 (rama main).
-Último commit de referencia previo a esta entrega: `479f353`. Los trucos y el menú
-corregido estaban pendientes de commit al comenzar la entrega 1.3.0.
+Commit del código de la release 1.4.0: `a70c68cacbd62a1e30dbdd8d67b8e85ff8cf7673`.
+Los cambios de esta guía son posteriores al APK; no implican una nueva compilación.
 Comprueba el estado actual: esta nota no reemplaza `git status` ni el historial.
 
-Versión preparada para esta entrega: **1.4.0**, Android versionCode **7**,
+Versión publicada: **1.4.0**, Android versionCode **7**,
 paquete `ec.barrels.surf`, minSdk 24, targetSdk 36, ABIs arm64/armeabi-v7a/x86_64.
 Estos valores describen la configuración; no certifican cumplimiento Play Store.
 
@@ -176,7 +178,7 @@ Incluye el commit que corresponde al artefacto y verifica el enlace público.
 5. Actualiza los informes. Pide autorización para la siguiente exportación si no
    ha sido solicitada explícitamente; la aprobación de esta entrega no es permanente.
 
-Pendientes reales: prueba humana en Android, calibrar sensibilidad y dificultad de
+Pendientes reales: sesión de gameplay documentada en Android, calibrar sensibilidad y dificultad de
 trucos en móvil, medir FPS reales y validar de nuevo en navegador cuando se autorice.
 Esta guía no autoriza por sí sola nuevas funciones, compilaciones ni publicaciones.
 
@@ -192,4 +194,151 @@ Regenera las ocho combinaciones y conserva los datos fuente al trasladar el proy
 Pruebas nuevas: `--qa --anatomy-test` y capturas con `--qa --visual-polish-test`.
 El usuario autorizó generar y subir el APK 1.4.0 y esta guía a GitHub.
 Consulta RELEASE_1.4.0.md y la release v1.4.0 para comprobar el resultado publicado.
-Android físico y web siguen pendientes. Consulta antes de futuras exportaciones.
+La instalación en POCO F7 Pro fue confirmada por el usuario. Gameplay medido en
+Android y una nueva exportación/prueba web siguen pendientes. Consulta antes de futuras exportaciones.
+
+
+## 9. Última conversación y siguiente trabajo
+
+- Dispositivo del usuario: POCO F7 Pro; versión comunicada de HyperOS:
+  `3.0.303.0.WOKMIXM.C09`. No se verificó por separado la versión de Android.
+- Al instalar apareció «el paquete no es válido». El usuario eliminó la instalación
+  anterior y comunicó un tamaño de descarga de aproximadamente 234 MB.
+- Se revisó el APK: firma v2 válida, CRC ZIP correcto, recursos.arsc sin comprimir y
+  alineado a 4 bytes, bibliotecas nativas sin comprimir y alineadas a 16 KB.
+  La copia descargada desde GitHub tenía el mismo SHA-256 que el original.
+- Después el usuario dijo «Ya funciona». Esto confirma resolución del bloqueo de
+  instalación según su reporte. No atribuyas la solución a Chrome, a HyperOS ni a
+  una modificación del APK: no indicó qué acción concreta resolvió el problema.
+- No se cambió ni recompiló el APK durante ese diagnóstico.
+- Solicitud actual atendida: actualizar esta guía para continuar con Claude.
+
+Enlaces de la entrega ya publicada:
+- Release: https://github.com/jaimeluzu2009-sketch/SURF-2026/releases/tag/v1.4.0
+- APK: https://github.com/jaimeluzu2009-sketch/SURF-2026/releases/download/v1.4.0/barrels-1.4.0.apk
+- Proyecto del tag: https://github.com/jaimeluzu2009-sketch/SURF-2026/archive/refs/tags/v1.4.0.zip
+- SHA-256 APK: `d653af2c09c7488ab86007523e502ef2040d19f08124455d5023bed4e198a4a8`.
+- Tamaño exacto: 234070994 bytes. Los enlaces públicos devolvieron HTTP 200 al publicar.
+- El CLAUDE.md adjunto a la release es la guía de ese momento: esta actualización
+  local es posterior. No supongas que el adjunto remoto está actualizado.
+
+Próximo paso recomendado si el usuario solicita seguir: recoger resultados reales
+sobre agua, anatomía, prendas, controles y una ola en cada spot desde su POCO.
+Corregir únicamente los problemas reportados y medir rendimiento cuando exista
+acceso a un dispositivo. No presentar FPS de RTX 4060 como FPS de móvil.
+Mantener como límites conocidos el acabado simplificado del cabello/piel/entorno
+ y la ordenación de transparencias del tubo. No prometer calidad fotorrealista.
+
+Antes de editar: lee AGENTS.md, esta guía y el informe del área concreta, comprueba
+`git status` y conserva cambios locales. No ejecutes helpers históricos sin leerlos.
+
+Regla permanente del usuario: después de cada cambio, actualizar CLAUDE.md al finalizar, con cambios, pruebas y pendientes reales.
+
+
+## 10. Cámaras, tubo, posturas y mando (local, posterior a 1.4.0)
+
+Regla permanente: después de CADA cambio actualizar esta guía al finalizar.
+Solicitud: tres POV, pulir tubo 3D, posturas adaptadas, ideas de interfaz táctil,
+y soporte de mando al jugar en web. Implementación y resultados detallados en
+`VALIDACION_CAMARAS_MOVIMIENTO.md`; leerlo antes de continuar estas áreas.
+
+- Ajustes.camera_view: 0 tercera persona, 1 primera persona, 2 frontal; guardado
+  en ajustes. Cambiar con C, R3, Ajustes > Controles o botón CÁMARA táctil.
+- CameraRig oculta solo la malla del cuerpo en primera persona y la restaura al
+  salir de ese modo/abrir personalización. Sigue cabeza animada y conserva rig.
+- WaveModel.tube_section ahora varía radios de forma suave por longitud/tiempo;
+  usarla tanto para malla como para techo físico. No duplicar fórmula en otro sitio.
+- SurferAnimator.tube_compression proviene del espacio al techo; mezcla posturas
+  existentes. Se ampliaron correcciones de torso, cabeza y brazos por maniobra.
+- Controles conecta gamepad_changed/gamepad_lost, navegación UI y R3. La pérdida
+  del último mando pausa la partida. Detección/ayuda visible en ajustes.
+- Nueva prueba: `--qa --camera-motion-test` (GPU para capturas).
+- Pasaron cámara/movimiento, controles, trucos, características, polish y techo
+  de tubo; piloto 3/3 olas. Algunas pruebas headless mantienen avisos ObjectDB.
+- Capturas: `capturas/camaras_movimiento/`; no incluirlas por defecto en Git.
+- No hay prueba de mando físico en navegador ni móvil de estos cambios. No llamar
+  a esto compatibilidad web certificada; los eventos de mando se probaron sintéticos.
+- Ideas táctiles pendientes de elección: pulir dos botones contextuales (recomendada),
+  modo práctica con ayudas o editor de posiciones/opacidad. Detalles en el informe.
+- NO se exportó APK/AAB/web ni se publicó. 1.4.0 continúa como APK público anterior.
+  Solicitar autorización antes de exportar o publicar otra entrega.
+
+
+## 11. Interior de tubo, botones táctiles y propuesta de tutorial (local)
+
+Leer VALIDACION_TUBO_TACTIL.md para cambios y pruebas. Regla vigente: actualizar
+esta guía al final de cada cambio, sin generar/publicar APK/AAB/web automáticamente.
+
+- WaveModel.tube_roof(section,z) es ahora la fuente común del arco asimétrico y
+  la altura de techo; Barrel usa esa función. No restaurar el antiguo arco sin
+  cambiar juntos malla/colisión. water-look-test valida coincidencia <5 mm.
+- Material del tubo distingue interior por signo de normal y vista; opacidad más
+  alta en interior y espuma menos rayada. Mantiene una sola superficie.
+- TouchControls redibujado con doble contorno, subtexto contextual, porcentaje,
+  anillo y aviso SUELTA. Mismos IDs táctiles y áreas de toque. Campo launch_ready
+  recibe SurfTricks.launch_available, que verifica requisitos y cooldown.
+- MIN_AIR_CHARGE=0.18: valor previo del gameplay centralizado, no nueva dificultad.
+- Ajustes.touch_opacity guardado en controles/opacidad, rango .35–1, default .8;
+  alto contraste mantiene alfa mínimo .85. Restablecer controles restaura .8.
+- Nueva prueba --qa --tube-touch-test (GPU para capturas); config aislada
+  user://tube-touch-test.cfg, eliminada al terminar. No usar ajustes reales en QA.
+- Pasaron: prueba tubo/táctil, water-look, tricks, features, controls, polish,
+  camera-motion y pilotos 3/3 spots. Avisos ObjectDB headless conocidos permanecen.
+- Un mando fue detectado durante QA. La prueba de pérdida no debe asumir lista
+  vacía; probar por separado que un mando restante no pausa y que gamepad_lost sí.
+- Capturas: capturas/tubo_controles/. Estados controlados de la escena real.
+- Tutorial solicitado como ideas/diseño: docs/TUTORIAL_DISENO.md define Escuela
+  del Pacífico, dos rutas, 16 lecciones, talleres, UI y criterios de validación.
+  NO hay todavía modo tutorial jugable ni entrada de menú funcional.
+- No se exportó ni publicó. El APK GitHub 1.4.0 no contiene estas mejoras locales.
+- Pendientes: confirmar diseño tutorial y después implementar la ruta inicial;
+  evaluar interior de tubo y lectura de botones en POCO F7 Pro, probar web/mando
+  y medir FPS en dispositivo cuando esté disponible y se autorice exportar.
+
+
+## 12. Escuela jugable, PC y primera persona — estado local más reciente
+
+Leer primero VALIDACION_ESCUELA_PC.md. Esta sección sustituye las notas anteriores
+que describían todo el tutorial como pendiente o toda la malla oculta en primera persona.
+
+- Menú > ESCUELA: ruta inicial «Mi primera ola» con siete lecciones y resultados,
+  progreso/repetición. scripts/surf_school.gd coordina estados reales, sin duplicar
+  movimiento ni física. Usa el spot actual y condición limpia; checkpoints de pie
+  solo para equilibrio/giro. Academia avanzada/tubo/talleres aún NO implementados.
+- Escuela guarda progreso en user://surf_school.cfg, formato 1. Game desvía
+  resultados ANTES de Perfil.record_ride: no conceder XP ni récords de carrera.
+- Pausa, reintento, perder ola y salida restauran estado. El overlay escolar DEBE
+  procesar ALWAYS porque el mundo se pausa en resultados. Verificar botones con
+  clics/eventos reales, no solo con pressed.emit(). Escape vuelve al selector.
+- scripts/settings.gd: F11/Alt+Enter, fullscreen y tamaños de ventana hasta
+  1920×1080 (limitados por espacio del escritorio). Base UI sigue 1280×720;
+  salida/3D no están fijados a 720p. ui/display_info.gd actualiza tamaño de ventana,
+  framebuffer y escala real. No confundir tamaño lógico/DPI con píxeles renderizados.
+- F11 está reservado; no permitir asignarlo a otra acción. Las preferencias se
+  guardan, pero cambios de audio/calidad no deben forzar el tamaño de ventana.
+- Caída: Surfer._fall_orientation se captura una vez. La pose usa tiempo absoluto,
+  no multiplicar otra vez el tumble sobre el transform del frame anterior. Se
+  limpia velocidad y estados al reset; no reentrar a WIPEOUT/DONE.
+- FirstPersonBody genera/cacha brazos filtrados de cada malla, mismo skeleton/skin
+  y materiales, sin cabeza/torso/piernas. No exportar modelos nuevos para ello ni
+  perder las variantes. CameraRig orienta hacia la cubierta y tabla original.
+  FOV 88° tumbado/82° de pie y near .04; revisar clipping desde más maniobras.
+- HUD oculta desafíos en primera persona y retos/puntuación competitiva en escuela.
+- Nueva prueba --qa --school-test (GPU para capturas); --school-layout prueba
+  formato 1280×576. Configs aisladas school-test.cfg y school-settings-test.cfg.
+- Pasaron siete lecciones con piloto/física en Montañita; guardado y aislamiento
+  de carrera; pausa, reintentos, clics GUI y Escape; ocho estilos/ropa de brazos;
+  caída 30/60/120 Hz y F11/Alt+Enter reales. También regresiones controls, tricks,
+  features, polish, camera-motion y anatomy. Persisten avisos ObjectDB headless.
+- Capturas: capturas/escuela_pc/ y capturas/escuela_pc_576/. Son del motor real;
+  las de remada usan poses controladas para comparar dos fases del ciclo.
+- Pantalla completa informó ventana 1920×1080 y framebuffer 2880×1620 en este
+  entorno, escala3D 1.0. No describirlo como prueba universal de 1080p.
+- No se probó nueva versión en móvil físico ni navegador; no se generó ningún
+  APK/AAB/web/ejecutable ni se subió GitHub. APK público sigue 1.4.0 anterior.
+- Pendiente: calibrar tutorial con personas y otros spots, academia avanzada,
+  controles/mando en navegador y móvil, medir FPS y revisar primera persona en
+  todas las maniobras. Consultar antes de futuras compilaciones/publicaciones.
+
+Regla del usuario vigente: al finalizar cada cambio, actualizar esta guía con
+lo implementado, las pruebas realmente ejecutadas y los pendientes.
